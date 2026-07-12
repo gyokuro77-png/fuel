@@ -1,626 +1,1726 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ラリー燃料計算</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PACE NOTE CO-DRIVER — ラリーコドライバー</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#09090b; --panel:#18181b; --panel-2:#0a0a0c; --border:#27272a; --border-strong:#3f3f46;
-    --text:#f4f4f5; --dim:#a1a1aa; --dimmer:#71717a; --dimmest:#52525b;
-    --amber:#fbbf24; --amber-dim:#f59e0b; --amber-border:#78350f;
-    --emerald:#34d399; --emerald-bg:#052e21; --emerald-border:#065f46;
-    --red:#f87171; --red-bg:#2a0e0e; --red-border:#7f1d1d;
-    --cyan:#22d3ee; --cyan-border:#164e63;
+    --bg:#15171b;
+    --panel:#1c1f24;
+    --panel-2:#22262c;
+    --line:#33383f;
+    --text:#e9e6dd;
+    --muted:#8b909a;
+    --amber:#f2b705;
+    --r-red:#c9453a;
+    --l-blue:#3d7aab;
+    --paper:#f2ecdb;
+    --paper-line:#d8c6ae;
+    --green:#5fbf6f;
   }
   *{box-sizing:border-box;}
-  body{
-    margin:0; background:var(--bg); color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",Segoe UI,sans-serif;
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;height:100%;}
+  header{
+    padding:16px 24px 12px;
+    border-bottom:1px solid var(--line);
+    display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
   }
-  .mono{ font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace; }
-  #app{ padding-bottom:70px; }
-  .header{
-    border-bottom:1px solid var(--border); background:rgba(24,24,27,.6);
-    padding:28px 20px 20px; display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+  header h1{
+    font-family:'Rajdhani',sans-serif;font-weight:700;font-size:22px;letter-spacing:2px;margin:0;
+    text-transform:uppercase;color:var(--text);
   }
-  .eyebrow{ display:flex; align-items:center; gap:6px; color:var(--amber); font-size:11px; letter-spacing:.12em;
-    text-transform:uppercase; margin-bottom:4px; font-weight:600; }
-  .title-input{
-    font-size:20px; font-weight:700; letter-spacing:-.01em; background:transparent; color:var(--text);
-    border:none; border-bottom:1px solid transparent; outline:none; width:100%; padding:2px 0; font-family:inherit;
+  header h1 span{color:var(--amber);}
+  header p{margin:0;color:var(--muted);font-size:12.5px;}
+
+  /* ---- Tabs ---- */
+  .tabbar{display:flex;gap:2px;padding:0 24px;border-bottom:1px solid var(--line);background:var(--panel);}
+  .tabbtn{
+    font-family:'Rajdhani',sans-serif;font-weight:700;letter-spacing:1px;font-size:13.5px;
+    background:transparent;color:var(--muted);border:none;border-bottom:3px solid transparent;
+    padding:12px 16px;cursor:pointer;text-transform:uppercase;
   }
-  .title-input:focus{ border-bottom-color:rgba(251,191,36,.6); }
-  .subtitle{ color:var(--dimmer); font-size:13px; margin:2px 0 0; }
-  .btn-print{
-    display:flex; align-items:center; gap:6px; background:var(--panel); border:1px solid var(--border-strong);
-    color:var(--dim); font-size:12px; font-weight:600; padding:8px 12px; border-radius:8px; cursor:pointer;
-    white-space:nowrap; flex-shrink:0;
+  .tabbtn:hover{color:var(--text);}
+  .tabbtn.active{color:var(--amber);border-bottom-color:var(--amber);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+
+  .layout{
+    display:grid;grid-template-columns:1.3fr 1fr;gap:16px;padding:16px;
   }
-  .btn-print:hover{ border-color:rgba(251,191,36,.7); color:var(--amber); }
-  .content{ padding:0 20px; margin-top:20px; display:flex; flex-direction:column; gap:20px; }
-  .card{ background:var(--panel); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
-  .card-pad{ padding:16px; }
-  .card-head{ padding:16px 16px 12px; border-bottom:1px solid rgba(39,39,42,.8); display:flex; align-items:center; justify-content:space-between; }
-  .card-title{ font-size:14px; font-weight:600; color:var(--dim); margin:0; }
-  .card-title.strong{ color:var(--text); font-weight:700; font-size:15px; }
-  .hint{ color:var(--dimmer); font-size:12px; margin:2px 0 12px; line-height:1.5; }
-  .row-2{ display:flex; gap:8px; }
-  .btn-secondary{
-    flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
-    background:var(--panel-2); border:1px solid var(--border); color:#e4e4e7; font-size:14px; font-weight:600;
-    padding:11px; border-radius:10px; cursor:pointer;
+  @media (max-width:980px){ .layout{grid-template-columns:1fr;} }
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;display:flex;flex-direction:column;overflow:hidden;}
+  .panel-head{
+    padding:10px 14px;border-bottom:1px solid var(--line);
+    font-family:'Rajdhani',sans-serif;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;font-size:13px;color:var(--muted);
+    display:flex;justify-content:space-between;align-items:center;gap:8px;
   }
-  .btn-secondary:hover{ border-color:rgba(251,191,36,.7); }
-  .btn-secondary:disabled{ opacity:.5; cursor:default; }
-  .msg-amber{ color:var(--amber); font-size:12px; margin-top:8px; }
-  .msg-red{ color:var(--red); font-size:12px; margin-top:8px; }
-  .link-btn{ display:flex; align-items:center; gap:4px; background:none; border:none; color:var(--dimmer); font-size:12px; cursor:pointer; padding:0; }
-  .link-btn:hover{ color:var(--amber); }
-  table{ width:100%; border-collapse:collapse; font-size:12px; min-width:640px; }
-  thead tr{ border-bottom:1px solid var(--border); }
-  th{ text-align:left; padding:8px 12px; font-size:10px; color:var(--dimmer); text-transform:uppercase; font-weight:500; font-family:inherit; }
-  th.r{ text-align:right; }
-  tbody tr{ border-bottom:1px solid rgba(39,39,42,.6); }
-  tbody tr:hover{ background:rgba(9,9,11,.4); }
-  td{ padding:6px 12px; }
-  td input{
-    background:transparent; border:none; border-bottom:1px solid transparent; color:#e4e4e7; outline:none;
-    font-size:12px; font-family:inherit; width:100%;
+  #map{flex:1;min-height:420px;background:#0c0d0f;}
+
+  .search-bar{display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--panel-2);}
+  .search-bar input{
+    flex:1;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:4px;
+    padding:8px 10px;font-family:'Inter',sans-serif;font-size:13px;
   }
-  td input:focus{ border-bottom-color:rgba(251,191,36,.6); }
-  td input.num{ text-align:right; font-family:"SFMono-Regular",Consolas,monospace; width:64px; }
-  td input.tc{ width:56px; font-family:"SFMono-Regular",Consolas,monospace; }
-  td input.loc{ width:160px; }
-  td input.sec{ width:96px; color:var(--dimmer); }
-  .table-wrap{ overflow-x:auto; }
-  .del-btn{ background:none; border:none; color:var(--dimmest); cursor:pointer; display:flex; }
-  .del-btn:hover{ color:var(--red); }
-  .field-label{ font-size:11px; color:var(--dimmer); text-transform:uppercase; font-family:"SFMono-Regular",Consolas,monospace; display:block; margin-bottom:3px; }
-  .amber-tag{ color:var(--amber); text-transform:none; }
-  .num-field{
-    display:flex; align-items:center; gap:6px; background:var(--panel-2); border:1px solid var(--border);
-    border-radius:8px; padding:7px 10px;
+  .search-bar input:focus{outline:none;border-color:var(--amber);}
+  .search-results{max-height:170px;overflow:auto;}
+  .search-results:not(:empty){border-bottom:1px solid var(--line);}
+  .search-item{padding:8px 12px;font-size:12px;border-bottom:1px solid #262a30;cursor:pointer;color:var(--text);line-height:1.4;}
+  .search-item:last-child{border-bottom:none;}
+  .search-item:hover{background:var(--panel-2);color:var(--amber);}
+  .search-item.muted{color:var(--muted);cursor:default;}
+  .search-item.muted:hover{background:none;color:var(--muted);}
+
+  .toolbar{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);flex-wrap:wrap;background:var(--panel-2);align-items:center;}
+  button{
+    font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;
+    background:var(--panel);color:var(--text);border:1px solid var(--line);
+    padding:8px 12px;border-radius:4px;cursor:pointer;transition:.15s;
   }
-  .num-field:focus-within{ border-color:rgba(251,191,36,.7); }
-  .num-field input{
-    width:100%; background:transparent; border:none; outline:none; color:var(--text); text-align:right;
-    font-family:"SFMono-Regular",Consolas,monospace; font-size:15px;
+  button:hover{border-color:var(--amber);color:var(--amber);}
+  button.primary{background:var(--amber);color:#1a1a1a;border-color:var(--amber);}
+  button.primary:hover{filter:brightness(1.08);color:#1a1a1a;}
+  button.danger:hover{border-color:var(--r-red);color:var(--r-red);}
+  button.go{background:var(--green);color:#0d1f10;border-color:var(--green);}
+  button.go:hover{filter:brightness(1.08);color:#0d1f10;}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  select,input[type=number]{
+    background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:4px;
+    padding:6px 8px;font-family:'Space Mono',monospace;font-size:12.5px;
   }
-  .num-field span{ color:var(--dimmer); font-size:11px; font-family:"SFMono-Regular",Consolas,monospace; flex-shrink:0; }
-  .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:0 16px 0; padding-top:12px; }
-  .readonly-value{
-    background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:7px 10px;
-    text-align:right; font-family:"SFMono-Regular",Consolas,monospace; font-size:15px; color:#d4d4d8;
+  input[type=range]{accent-color:var(--amber);}
+  .hint{font-size:11.5px;color:var(--muted);padding:8px 12px 0;line-height:1.5;}
+  .status{font-size:11.5px;color:var(--amber);padding:0 12px 8px;min-height:14px;}
+
+  .right-col{display:flex;flex-direction:column;gap:16px;overflow:hidden;}
+  .list-wrap{flex:1;overflow:auto;padding:8px 10px;}
+  table.notes{width:100%;border-collapse:collapse;font-family:'Space Mono',monospace;font-size:12px;}
+  table.notes th{
+    text-align:left;color:var(--muted);font-weight:600;font-size:10.5px;letter-spacing:1px;
+    text-transform:uppercase;padding:4px 6px;border-bottom:1px solid var(--line);
   }
-  .readonly-value span{ color:var(--dimmer); font-size:11px; }
-  .refuel-card{ border-color:var(--cyan-border); }
-  .refuel-eyebrow{ display:flex; align-items:center; gap:6px; color:var(--cyan); font-size:11px; letter-spacing:.12em; text-transform:uppercase; margin-bottom:4px; font-weight:600; }
-  .readout{ margin:12px 16px 16px; background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:12px; }
-  .readout-row{ display:flex; justify-content:space-between; font-size:12px; color:var(--dimmer); font-family:"SFMono-Regular",Consolas,monospace; margin-bottom:6px; }
-  .required-row{ display:flex; align-items:baseline; justify-content:space-between; }
-  .required-label{ font-size:12px; color:var(--dim); }
-  .required-value{ font-family:"SFMono-Regular",Consolas,monospace; font-size:24px; font-weight:700; color:#fafafa; }
-  .required-value span{ font-size:13px; color:var(--dimmer); margin-left:4px; }
-  .margin-box{ margin-top:12px; display:flex; align-items:center; justify-content:space-between; border-radius:8px; padding:8px 12px; border:1px solid; }
-  .margin-box.ok{ background:rgba(5,46,33,.4); border-color:var(--emerald-border); color:var(--emerald); }
-  .margin-box.bad{ background:rgba(42,14,14,.4); border-color:var(--red-border); color:var(--red); }
-  .margin-status{ display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; }
-  .margin-value{ font-family:"SFMono-Regular",Consolas,monospace; font-size:13px; }
-  .totals-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; text-align:center; }
-  .totals-cell{ background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:10px 4px; }
-  .totals-cell.hi{ border-color:var(--amber-border); }
-  .totals-label{ font-size:10px; color:var(--dimmer); text-transform:uppercase; font-family:"SFMono-Regular",Consolas,monospace; }
-  .totals-label.hi{ color:var(--amber-dim); }
-  .totals-value{ font-family:"SFMono-Regular",Consolas,monospace; font-size:16px; font-weight:700; margin-top:2px; }
-  .totals-value.hi{ color:var(--amber); }
-  .totals-unit{ font-size:10px; color:var(--dimmest); }
-  .foot-note{ font-size:11px; color:var(--dimmest); margin-top:12px; line-height:1.6; }
-  #print-sheet{ display:none; }
-  @media print{
-    .no-print{ display:none !important; }
-    #print-sheet{ display:block !important; }
-    body{ background:#fff !important; }
+  table.notes td{padding:4px 6px;border-bottom:1px solid #262a30;vertical-align:middle;}
+  .badge-R{color:#fff;background:var(--r-red);border-radius:3px;padding:2px 6px;font-weight:700;}
+  .badge-L{color:#fff;background:var(--l-blue);border-radius:3px;padding:2px 6px;font-weight:700;}
+  .rowbtn{padding:3px 6px;font-size:10px;}
+  .direction-toggle{display:flex;gap:6px;padding:10px 12px;}
+  .direction-toggle button{flex:1;}
+  .direction-toggle button.active{background:var(--amber);color:#1a1a1a;border-color:var(--amber);}
+
+  .saved-save-row{display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);}
+  .saved-save-row input[type=text]{
+    flex:1;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:4px;
+    padding:7px 9px;font-family:'Inter',sans-serif;font-size:12.5px;
   }
-  #print-sheet{ padding:24px; color:#000; background:#fff; }
-  #print-sheet table{ width:100%; font-size:11px; border-collapse:collapse; margin-bottom:20px; min-width:0; }
-  #print-sheet th{ text-align:left; padding:4px 8px 4px 0; border-bottom:1px solid #000; color:#000; text-transform:none; font-size:11px; }
-  #print-sheet th.r, #print-sheet td.r{ text-align:right; }
-  #print-sheet td{ padding:4px 8px 4px 0; border-bottom:1px solid #ccc; }
+  .saved-save-row input[type=text]:focus{outline:none;border-color:var(--amber);}
+  .saved-import-row{display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);align-items:center;background:var(--panel-2);}
+  .saved-list{max-height:190px;overflow:auto;}
+  .saved-item{
+    display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #262a30;font-size:12px;
+  }
+  .saved-item:last-child{border-bottom:none;}
+  .saved-item .meta{flex:1;min-width:0;}
+  .saved-item .name{color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .saved-item .sub{color:var(--muted);font-size:10.5px;font-family:'Space Mono',monospace;}
+  .saved-empty{padding:14px 12px;color:var(--muted);font-size:12px;}
+
+  .sheet-outer{background:var(--panel-2);padding:14px;overflow:auto;max-height:260px;}
+  .sheet{
+    background:var(--paper);color:#20201d;border-radius:2px;padding:10px 10px 10px 26px;position:relative;
+    font-family:'Space Mono',monospace;box-shadow:0 4px 14px rgba(0,0,0,.35);
+  }
+  .sheet::before{
+    content:'';position:absolute;left:8px;top:6px;bottom:6px;width:1px;background:repeating-linear-gradient(180deg,#b9a688 0,#b9a688 6px,transparent 6px,transparent 14px);
+  }
+  .sheet .spirals{position:absolute;left:1px;top:8px;bottom:8px;width:6px;}
+  .sheet .spirals div{width:5px;height:5px;border-radius:50%;background:#0c0d0f22;border:1px solid #b9a688;margin-bottom:9px;}
+  .sheet-meta{
+    font-size:11px;font-weight:700;color:#6b5a3c;letter-spacing:.5px;
+    padding:2px 2px 8px;border-bottom:1px solid var(--paper-line);margin-bottom:4px;
+  }
+  .sheet-line{
+    display:flex;flex-wrap:wrap;align-items:baseline;gap:14px;
+    border-bottom:1px dashed var(--paper-line);padding:7px 2px;font-size:14px;
+  }
+  .sheet-line:last-child{border-bottom:none;}
+  .tok-dist{font-weight:700;color:#4a4a44;}
+  .tok-symbol{font-weight:900;color:#8a7248;font-size:17px;}
+  .tok-R{color:var(--r-red);font-weight:800;}
+  .tok-L{color:var(--l-blue);font-weight:800;}
+  .tok-finish{color:#20201d;font-weight:800;letter-spacing:1px;}
+
+  .export-bar{padding:10px 12px;border-top:1px solid var(--line);display:flex;gap:8px;background:var(--panel-2);}
+  .legend{display:flex;gap:14px;padding:8px 12px 0;font-size:11px;color:var(--muted);flex-wrap:wrap;}
+  .legend b{color:var(--text);}
+  .num-marker{
+    background:var(--amber);color:#1a1a1a;border-radius:50%;width:20px;height:20px;
+    display:flex;align-items:center;justify-content:center;font-family:'Rajdhani';font-weight:700;font-size:12px;border:2px solid #1a1a1a;
+  }
+
+  .locate-dot-wrap{width:20px;height:20px;position:relative;}
+  .locate-dot{
+    width:14px;height:14px;border-radius:50%;background:#3d9bff;border:2px solid #fff;
+    box-shadow:0 0 0 2px rgba(61,155,255,.5);position:absolute;left:3px;top:3px;z-index:2;
+  }
+  .locate-dot-pulse{
+    width:20px;height:20px;border-radius:50%;background:rgba(61,155,255,.35);
+    position:absolute;left:0;top:0;z-index:1;animation:locatePulse 1.8s ease-out infinite;
+  }
+  @keyframes locatePulse{
+    0%{transform:scale(.4);opacity:.8;}
+    100%{transform:scale(2.2);opacity:0;}
+  }
+  #btnLocateMe, #btnLocateMeDrive{white-space:nowrap;}
+
+  /* ===================== DRIVE MODE ===================== */
+  .drive-wrap{padding:16px;display:flex;flex-direction:column;gap:16px;}
+  .empty-note{
+    background:var(--panel);border:1px dashed var(--line);border-radius:6px;color:var(--muted);
+    padding:26px;text-align:center;font-size:13px;line-height:1.7;
+  }
+  .empty-note b{color:var(--amber);}
+
+  .hud-card{
+    background:linear-gradient(180deg,#1a1d22,#101216);
+    border:1px solid var(--line);border-radius:10px;
+    padding:22px 20px 18px;
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    position:relative;overflow:hidden;
+  }
+  .hud-card::before{ /* subtle rally stripe */
+    content:'';position:absolute;top:0;left:0;right:0;height:4px;
+    background:repeating-linear-gradient(90deg,var(--amber) 0 24px, #1a1d22 24px 48px);
+    opacity:.85;
+  }
+  .hud-progress-track{width:100%;height:5px;background:#2a2e34;border-radius:3px;overflow:hidden;margin-bottom:10px;}
+  .hud-progress-fill{height:100%;width:0%;background:var(--amber);transition:width .3s linear;}
+  .hud-topline{display:flex;justify-content:space-between;width:100%;font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:4px;}
+  .hud-arrow{
+    font-size:88px;line-height:1;transform:rotate(0deg);transition:transform .25s ease, color .2s;
+    color:var(--muted);user-select:none;
+  }
+  .hud-arrow.dir-R{color:var(--r-red);}
+  .hud-arrow.dir-L{color:var(--l-blue);}
+  .hud-grade{
+    font-family:'Rajdhani',sans-serif;font-weight:700;font-size:56px;line-height:1;letter-spacing:1px;
+    color:var(--text);
+  }
+  .hud-grade.dir-R{color:var(--r-red);}
+  .hud-grade.dir-L{color:var(--l-blue);}
+  .hud-dist{
+    font-family:'Space Mono',monospace;font-weight:700;font-size:34px;color:var(--amber);margin-top:2px;
+  }
+  .hud-dist span{font-size:16px;color:var(--muted);margin-left:4px;}
+  .hud-next{
+    font-family:'Space Mono',monospace;font-size:13px;color:var(--muted);margin-top:8px;min-height:18px;
+  }
+  .hud-next b{color:var(--text);}
+  .hud-queue{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px;}
+  .hud-pill{
+    font-family:'Space Mono',monospace;font-size:12px;font-weight:700;border-radius:4px;
+    padding:4px 9px;background:#22262c;color:var(--muted);border:1px solid var(--line);
+  }
+  .hud-pill.R{color:#fff;background:var(--r-red);border-color:var(--r-red);}
+  .hud-pill.L{color:#fff;background:var(--l-blue);border-color:var(--l-blue);}
+  .hud-pill.current{outline:2px solid var(--amber);}
+  .hud-status-line{
+    font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);margin-top:12px;text-align:center;min-height:16px;
+  }
+  .hud-status-line.speaking{color:var(--amber);}
+
+  .drive-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:900px){ .drive-grid{grid-template-columns:1fr;} }
+
+  #mapDrive{height:230px;background:#0c0d0f;}
+
+  .drive-controls{padding:12px 14px;display:flex;flex-direction:column;gap:10px;}
+  .drive-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .drive-row label{font-size:11.5px;color:var(--muted);white-space:nowrap;}
+  .sim-speed-inline{display:flex;align-items:center;gap:8px;flex:1;min-width:160px;}
+  .sim-speed-inline input[type=range]{flex:1;}
+  #simSpeedLabel{font-family:'Space Mono',monospace;font-size:12px;color:var(--amber);min-width:64px;text-align:right;}
+
+  .voice-settings{padding:12px 14px;display:flex;flex-direction:column;gap:10px;}
+  .vrow{display:flex;align-items:center;gap:10px;}
+  .vrow label{font-size:11.5px;color:var(--muted);width:118px;flex:0 0 auto;}
+  .vrow input[type=range]{flex:1;}
+  .vrow .vval{font-family:'Space Mono',monospace;font-size:11.5px;color:var(--amber);width:44px;text-align:right;}
+  .vrow select{flex:1;}
 </style>
 </head>
 <body>
-<div id="app"></div>
 
+<header>
+  <h1>PACE<span>NOTE</span> CO-DRIVER</h1>
+  <p>①でコースからペースノートを作成 → ②で走行しながら次のコーナーを音声で読み上げます（GPS走行 / シミュレーション再生に対応）。</p>
+</header>
+
+<div class="tabbar">
+  <button class="tabbtn active" id="tabBtn1" data-tab="1">① コース作成</button>
+  <button class="tabbtn" id="tabBtn2" data-tab="2">② 走行モード（コドライバー）</button>
+</div>
+
+<!-- ============ TAB 1: ROUTE / NOTE CREATION ============ -->
+<div class="tab-panel active" id="tab1">
+<div class="layout">
+  <div class="panel">
+    <div class="panel-head">
+      <span>ROUTE MAP <span style="color:var(--muted);font-weight:400;">(OpenStreetMap)</span></span>
+      <span id="ptCount" style="color:var(--text);">0 pts</span>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="🔍 地名・住所で検索して地図を移動 (例: 箱根峠)">
+      <button id="btnSearch">検索</button>
+      <button id="btnLocateMe" title="現在地を地図の中心に表示">📍 現在地</button>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+    <div id="map"></div>
+    <div class="hint">この画面で道路データAPIが利用可能な場合は、<b>「📍 点を打つ」で始点・終点の2点だけ</b>置いて「🌐 道路データAPIも試す」を押せば、ナビアプリのように実際の道路に沿ったルートが自動生成されます（下のバッジで利用可否を確認できます）。APIが使えない環境では、<b>「✏️ なぞって作成」</b>で道路の上を指/マウスでなぞってください。なぞった通りの形状がそのまま道路の曲率として解析されます。</div>
+    <div class="status" id="status"></div>
+    <div class="toolbar">
+      <button id="modePan" class="primary">🖐 地図移動</button>
+      <button id="modeTrace">✏️ なぞって作成</button>
+      <button id="modePoint">📍 点を打つ</button>
+      <button id="btnUndo">1つ戻す</button>
+      <button id="btnReset" class="danger">リセット</button>
+    </div>
+    <div class="toolbar" style="border-top:none;padding-top:0;align-items:center;">
+      <button id="btnRoute" class="primary">🛣 ルート作成 &amp; 解析</button>
+      <button id="btnRouteApi">🌐 道路データAPIも試す</button>
+      <span id="apiBadge" style="font-size:11px;color:var(--muted);">● 確認中…</span>
+    </div>
+  </div>
+
+  <div class="right-col">
+    <div class="panel" style="flex:0 0 auto;">
+      <div class="panel-head">DIRECTION / 走行方向</div>
+      <div class="direction-toggle">
+        <button id="dirFwd" class="active">➜ 順方向（区間指定した通り）</button>
+        <button id="dirRev">⟵ 逆方向</button>
+      </div>
+      <div class="legend">
+        <span><b>6</b> = ハンドル10度で曲がれる</span>
+        <span><b>4</b> = ハンドル90度</span>
+        <span><b>3</b> = ハンドル180度</span>
+        <span><b>2</b> = ハンドル360度</span>
+        <span><b>1</b> = それ以上（時速30km想定）</span>
+        <span class="badge-R">R</span> 右　<span class="badge-L">L</span> 左
+        <span>｜距離: <b>・</b>=0〜20m(すぐ) <b>→</b>=20〜30m(から) それ以降は10m単位</span>
+      </div>
+    </div>
+
+    <div class="panel" style="flex:0 0 auto;">
+      <div class="panel-head">
+        <span>SAVED ROUTES <span style="color:var(--muted);font-weight:400;">/ 保存済みルート</span></span>
+      </div>
+      <div class="saved-save-row">
+        <input type="text" id="saveNameInput" placeholder="ルート名を入力 (例: 箱根SS3)">
+        <button id="btnSaveRoute" class="primary">💾 保存</button>
+      </div>
+      <div class="saved-import-row">
+        <button id="btnImportRoute">⬆ JSONを読み込む</button>
+        <input type="file" id="importFileInput" accept="application/json" style="display:none;">
+        <span style="font-size:11px;color:var(--muted);">端末/ブラウザをまたいで移す場合はエクスポート/インポートを使用</span>
+      </div>
+      <div class="saved-list" id="savedList"></div>
+    </div>
+
+    <div class="panel" style="flex:1;min-height:0;">
+      <div class="panel-head">
+        <span>DETECTED NOTES <span style="color:var(--muted);font-weight:400;" id="totalDist"></span></span>
+        <button id="btnAddCorner" class="rowbtn" style="font-size:11px;">+ 手動追加</button>
+      </div>
+      <div class="list-wrap">
+        <table class="notes" id="notesTable">
+          <thead>
+            <tr><th>距離(m)</th><th>表記</th><th>方向</th><th>曲率(1-6)</th><th></th></tr>
+          </thead>
+          <tbody id="notesBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" style="flex:0 0 auto;">
+      <div class="panel-head">PACE NOTE PREVIEW</div>
+      <div class="sheet-outer">
+        <div class="sheet">
+          <div class="spirals" id="spirals"></div>
+          <div id="sheetMeta" class="sheet-meta"></div>
+          <div id="sheetRows"></div>
+        </div>
+      </div>
+      <div class="export-bar">
+        <button id="btnPdf" class="primary" style="flex:1;">⬇ PDFで出力</button>
+        <button id="btnGoDrive" class="go" style="flex:1;">🎙 このノートで走行モードへ →</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============ TAB 2: DRIVE / CO-DRIVER MODE ============ -->
+<div class="tab-panel" id="tab2">
+<div class="drive-wrap">
+
+  <div id="driveEmpty" class="empty-note">
+    まだペースノートがありません。<br>
+    先に <b>①コース作成</b> タブでルートを作成し、コーナーを検出してからこちらに戻ってください。
+  </div>
+
+  <div id="driveMain" style="display:none;">
+    <div class="hud-card">
+      <div class="hud-topline">
+        <span id="hudDirLabel">方向: 順方向</span>
+        <span id="hudProgressLabel">0 / 0 m</span>
+      </div>
+      <div class="hud-progress-track"><div id="hudProgressFill" class="hud-progress-fill"></div></div>
+      <div id="hudArrow" class="hud-arrow">➤</div>
+      <div id="hudGrade" class="hud-grade">—</div>
+      <div id="hudDist" class="hud-dist">—<span>m</span></div>
+      <div id="hudNext" class="hud-next">スタート待機中</div>
+      <div id="hudQueue" class="hud-queue"></div>
+      <div id="hudStatus" class="hud-status-line"></div>
+    </div>
+
+    <div class="drive-grid" style="margin-top:16px;">
+      <div class="panel">
+        <div class="panel-head">DRIVE CONTROL</div>
+        <div class="drive-controls">
+          <div class="drive-row">
+            <button id="btnStartGps" class="primary">📡 GPSで開始</button>
+            <button id="btnStopDrive" class="danger" disabled>■ 停止</button>
+            <button id="btnRestartDrive">🔄 やり直す</button>
+          </div>
+          <div class="drive-row">
+            <button id="btnStartSim" class="go">▶ シミュレーション開始</button>
+            <div class="sim-speed-inline">
+              <label>速度</label>
+              <input type="range" id="simSpeedSlider" min="10" max="160" step="5" value="60">
+              <span id="simSpeedLabel">60 km/h</span>
+            </div>
+          </div>
+          <div class="hint" style="padding:0;">
+            GPS走行は位置情報の許可と実際の走行が必要です（このプレビュー画面では位置情報がブロックされ動作しない場合があります — その場合はHTMLをダウンロードしてブラウザで直接開くか、下の<b>「シミュレーション開始」</b>でルートに沿った自動走行をテストできます）。
+          </div>
+          <div class="status" id="driveStatus"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <span>LIVE POSITION</span>
+          <button id="btnLocateMeDrive" class="rowbtn" title="現在地を地図の中心に表示">📍 現在地</button>
+        </div>
+        <div id="mapDrive"></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px;">
+      <div class="panel-head">
+        <span>VOICE / コドライバーの声</span>
+        <button id="btnTestSpeak" class="rowbtn">🔊 テスト再生</button>
+      </div>
+      <div class="voice-settings">
+        <div class="vrow">
+          <label>音声</label>
+          <select id="voiceSelect"></select>
+        </div>
+        <div class="vrow">
+          <label>読み上げタイミング</label>
+          <input type="range" id="callAheadSlider" min="1" max="10" step="0.5" value="4">
+          <span class="vval" id="callAheadVal">4.0秒</span>
+        </div>
+        <div class="vrow">
+          <label>速さ (rate)</label>
+          <input type="range" id="rateSlider" min="0.6" max="1.6" step="0.05" value="1.05">
+          <span class="vval" id="rateVal">1.05</span>
+        </div>
+        <div class="vrow">
+          <label>高さ (pitch)</label>
+          <input type="range" id="pitchSlider" min="0.5" max="1.8" step="0.05" value="1.0">
+          <span class="vval" id="pitchVal">1.00</span>
+        </div>
+        <div class="vrow">
+          <label>音量</label>
+          <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="1.0">
+          <span class="vval" id="volumeVal">1.00</span>
+        </div>
+        <div class="hint" style="padding:0;">
+          「読み上げタイミング」は、現在の速度から逆算して何秒前にコーナーをコールするかの目安です（停止中/低速時は約15m手前で固定コールします）。
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
 <script>
-(function(){
-  "use strict";
+window.addEventListener('error', (e)=>{
+  const s = document.getElementById('status');
+  if(s) s.textContent = '⚠ エラー: ' + (e.message || 'unknown') + (e.filename ? ` (${e.filename}:${e.lineno})` : '');
+  console.error('Caught error:', e);
+});
 
-  // ---------- data ----------
-  var initialRows = [
-    { id:"r0",  tc:"0",   location:"Start(バイテック文化ホール)",                     ss:null,  li:null,  section:"-",         due:"7:30:00" },
-    { id:"r1",  tc:"1",   location:"Gonda",                                            ss:null,  li:22.3,  section:"Section-1", due:"8:20" },
-    { id:"r2",  tc:"SS1", location:"Sakakura",                                         ss:11.0,  li:null,  section:"Section-1", due:"8:23" },
-    { id:"r3",  tc:"2",   location:"Kaise",                                            ss:null,  li:17.74, section:"Section-1", due:"9:13" },
-    { id:"r4",  tc:"SS2", location:"Kazuma-Rev",                                       ss:9.3,   li:null,  section:"Section-1", due:"9:16" },
-    { id:"r5",  tc:"3",   location:"Gonda",                                            ss:null,  li:27.6,  section:"Section-1", due:"10:06" },
-    { id:"r6",  tc:"SS3", location:"Sakakura",                                         ss:11.0,  li:null,  section:"Section-1", due:"10:09" },
-    { id:"r7",  tc:"RZ1", location:"JA-SS",                                            ss:null,  li:15.6,  section:"Section-1", due:"10:44" },
-    { id:"r8",  tc:"3A",  location:"バイテック文化ホール Service IN",                  ss:null,  li:8.1,   section:"Section-1", due:"11:04" },
-    { id:"r9",  tc:"3B",  location:"バイテック文化ホール Service Out/Regroup IN",      ss:null,  li:null,  section:"-",         due:"11:39" },
-    { id:"r10", tc:"3C",  location:"バイテック文化ホール Regroup OUT",                 ss:null,  li:null,  section:"-",         due:"11:49" },
-    { id:"r11", tc:"4",   location:"Kaise",                                            ss:null,  li:27.5,  section:"Section-2", due:"12:39" },
-    { id:"r12", tc:"SS4", location:"Kazuma-Rev",                                       ss:9.3,   li:null,  section:"Section-2", due:"12:42" },
-    { id:"r13", tc:"5",   location:"Gonda",                                            ss:null,  li:27.6,  section:"Section-2", due:"13:32" },
-    { id:"r14", tc:"SS5", location:"Sakakura",                                         ss:11.0,  li:null,  section:"Section-2", due:"13:35" },
-    { id:"r15", tc:"5A",  location:"Parc Ferme IN",                                    ss:null,  li:22.8,  section:"Section-2", due:"14:20" }
-  ];
+/* ===================== TABS ===================== */
+document.getElementById('tabBtn1').onclick = ()=>switchTab('1');
+document.getElementById('tabBtn2').onclick = ()=>switchTab('2');
+document.getElementById('btnGoDrive').onclick = ()=>switchTab('2');
+function switchTab(n){
+  document.getElementById('tabBtn1').classList.toggle('active', n==='1');
+  document.getElementById('tabBtn2').classList.toggle('active', n==='2');
+  document.getElementById('tab1').classList.toggle('active', n==='1');
+  document.getElementById('tab2').classList.toggle('active', n==='2');
+  if(n==='2') enterDriveTab();
+  if(n==='1' && mapReady && map){ setTimeout(()=>map.invalidateSize(), 60); }
+}
 
-  var uid = 100;
-  function newId(){ return "r" + (uid++); }
+/* ===================== STATE ===================== */
+let map;
+let historyBatches = [];  // array of strokes; each stroke = array of {lat,lng}
+let pathPoints = [];      // flattened, ordered {lat,lng} — the full hand-drawn path
+let waypointMarkers = [];
+let routeLayer = null, draftLayer = null;
+let routeCoordsLatLng = null;  // [[lng,lat],...] final smoothed route used for analysis
+let mode = 'pan';              // 'pan' | 'trace' | 'point'
+let direction = 'fwd';         // 'fwd' | 'rev'
+let notes = [];                // {distance, dir:'R'|'L'|'FINISH', grade}
 
-  function cloneRows(rows){ return rows.map(function(r){ return Object.assign({}, r); }); }
+function rebuildPathPoints(){ pathPoints = historyBatches.flat(); }
 
-  var defaultState = {
-    eventTitle: "あさま隠山岳ラリー 2026",
-    liaisonRate: 9,
-    ssRate: 1.5,
-    startFuel: 45,
-    refuels: {},
-    sectionOverrides: {},
-    importing: false,
-    importError: ""
-  };
+/* ===================== MAP SETUP ===================== */
+let mapReady = false;
+try{
+  if(typeof L === 'undefined') throw new Error('Leaflet library failed to load from CDN');
+  map = L.map('map', {zoomControl:true}).setView([35.6812, 139.7671], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
 
-  var state = Object.assign({}, defaultState, { rows: cloneRows(initialRows) });
+  map.on('click', (e) => {
+    if(mode!=='point') return;
+    historyBatches.push([{lat:e.latlng.lat, lng:e.latlng.lng}]);
+    rebuildPathPoints();
+    redrawPath();
+  });
 
-  function resetState(){
-    state = Object.assign({}, defaultState, { rows: cloneRows(initialRows) });
+  const container = map.getContainer();
+  let isTracing = false, currentStroke = [], liveLayer = null;
+  const MIN_PIXEL_DIST = 6;
+
+  function toContainerPoint(e){
+    const rect = container.getBoundingClientRect();
+    return {x: e.clientX - rect.left, y: e.clientY - rect.top};
   }
 
-  // ---------- computation ----------
-  function computeBaseSections(rows){
-    var order = [], map = {};
-    rows.forEach(function(r){
-      var sec = (r.section || "-").trim();
-      if(!sec || sec === "-") return;
-      if(!map[sec]){ map[sec] = { name:sec, liaisonKm:0, ssKm:0 }; order.push(sec); }
-      map[sec].liaisonKm += Number(r.li) || 0;
-      map[sec].ssKm += Number(r.ss) || 0;
-    });
-    return order.map(function(name){ return map[name]; });
-  }
+  container.addEventListener('pointerdown', (e)=>{
+    if(mode!=='trace') return;
+    isTracing = true;
+    currentStroke = [];
+    const p = toContainerPoint(e);
+    const ll = map.containerPointToLatLng([p.x, p.y]);
+    currentStroke.push({lat:ll.lat, lng:ll.lng, px:p.x, py:p.y});
+    if(container.setPointerCapture){ try{ container.setPointerCapture(e.pointerId); }catch(_){} }
+    e.preventDefault();
+  });
 
-  function computeAll(){
-    var base = computeBaseSections(state.rows);
-    var effective = base.map(function(s){
-      var ov = state.sectionOverrides[s.name] || {};
-      return {
-        name: s.name,
-        baseLiaisonKm: s.liaisonKm,
-        baseSsKm: s.ssKm,
-        liaisonKm: ov.liaisonKm !== undefined ? ov.liaisonKm : s.liaisonKm,
-        ssKm: ov.ssKm !== undefined ? ov.ssKm : s.ssKm,
-        liaisonOverridden: ov.liaisonKm !== undefined,
-        ssOverridden: ov.ssKm !== undefined
-      };
-    });
+  container.addEventListener('pointermove', (e)=>{
+    if(!isTracing || mode!=='trace') return;
+    const p = toContainerPoint(e);
+    const last = currentStroke[currentStroke.length-1];
+    if(Math.hypot(p.x-last.px, p.y-last.py) < MIN_PIXEL_DIST) return;
+    const ll = map.containerPointToLatLng([p.x, p.y]);
+    currentStroke.push({lat:ll.lat, lng:ll.lng, px:p.x, py:p.y});
+    if(liveLayer) map.removeLayer(liveLayer);
+    liveLayer = L.polyline(currentStroke.map(pt=>[pt.lat,pt.lng]), {color:'#f2b705', weight:4, opacity:.95}).addTo(map);
+    e.preventDefault();
+  });
 
-    var carry = state.startFuel;
-    var results = effective.map(function(s, i){
-      var refuel = i === 0 ? 0 : (state.refuels[s.name] || 0);
-      var prevLeftover = i === 0 ? null : carry;
-      var remain = carry + refuel;
-      var liaisonFuel = state.liaisonRate > 0 ? s.liaisonKm / state.liaisonRate : 0;
-      var ssFuel = state.ssRate > 0 ? s.ssKm / state.ssRate : 0;
-      var required = liaisonFuel + ssFuel;
-      var margin = remain - required;
-      carry = margin;
-      return Object.assign({}, s, {
-        refuel: refuel, prevLeftover: prevLeftover, remain: remain,
-        liaisonFuel: liaisonFuel, ssFuel: ssFuel, required: required, margin: margin, ok: margin >= 0
-      });
-    });
-
-    var totals = {
-      liaisonKm: effective.reduce(function(a,s){ return a + s.liaisonKm; }, 0),
-      ssKm: effective.reduce(function(a,s){ return a + s.ssKm; }, 0),
-      required: results.reduce(function(a,r){ return a + r.required; }, 0)
-    };
-
-    return { results: results, totals: totals };
-  }
-
-  // ---------- helpers ----------
-  function esc(str){
-    return String(str == null ? "" : str)
-      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-  }
-  function fmt(n){ return (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2); }
-  function setText(id, text){ var el = document.getElementById(id); if(el) el.textContent = text; }
-
-  function fileToBase64(file){
-    return new Promise(function(resolve, reject){
-      var reader = new FileReader();
-      reader.onload = function(){ resolve(reader.result.split(",")[1]); };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  // ---------- rendering ----------
-  function rowHtml(r){
-    return (
-      '<tr>' +
-        '<td><input class="tc" data-row-id="' + r.id + '" data-field="tc" value="' + esc(r.tc) + '"></td>' +
-        '<td><input class="loc" data-row-id="' + r.id + '" data-field="location" value="' + esc(r.location) + '"></td>' +
-        '<td><input class="num" type="number" step="0.01" placeholder="—" data-row-id="' + r.id + '" data-field="ss" value="' + (r.ss == null ? "" : r.ss) + '"></td>' +
-        '<td><input class="num" type="number" step="0.01" placeholder="—" data-row-id="' + r.id + '" data-field="li" value="' + (r.li == null ? "" : r.li) + '"></td>' +
-        '<td><input class="sec" data-row-id="' + r.id + '" data-field="section" value="' + esc(r.section) + '"></td>' +
-        '<td><button class="del-btn" data-action="delete-row" data-row-id="' + r.id + '" title="削除">✕</button></td>' +
-      '</tr>'
-    );
-  }
-
-  function sectionBlockHtml(r, i, prevName){
-    var refuelCard = "";
-    if(i > 0){
-      refuelCard =
-        '<div class="card refuel-card card-pad">' +
-          '<div class="refuel-eyebrow">⛽ リフューエル</div>' +
-          '<p class="hint" id="sec-' + i + '-refuel-hint">' + esc(prevName) + ' 終了時点の残り ' + fmt(r.prevLeftover) + ' L に、ここで補給した分を追加します。</p>' +
-          '<div class="num-field"><input type="number" step="0.1" min="0" data-section-name="' + esc(r.name) + '" data-field="refuel" value="' + r.refuel + '"><span>L</span></div>' +
-          '<p class="foot-note mono" id="sec-' + i + '-refuel-eq" style="margin-top:8px;">' + fmt(r.prevLeftover) + ' L + ' + fmt(r.refuel) + ' L = ' + fmt(r.remain) + ' L（' + esc(r.name) + ' 開始時）</p>' +
-        '</div>';
+  function endStroke(){
+    if(!isTracing) return;
+    isTracing = false;
+    if(liveLayer){ map.removeLayer(liveLayer); liveLayer=null; }
+    if(currentStroke.length >= 2){
+      historyBatches.push(currentStroke.map(p=>({lat:p.lat, lng:p.lng})));
+      rebuildPathPoints();
+      redrawPath();
+      setStatus(`✓ トレースを追加しました（${currentStroke.length}点）。続けてなぞるか、「ルート作成&解析」を押してください。`);
     }
+    currentStroke = [];
+  }
+  window.addEventListener('pointerup', endStroke);
+  container.addEventListener('pointercancel', endStroke);
 
-    var startFuelBlock;
-    if(i === 0){
-      startFuelBlock =
-        '<div style="padding:12px 16px 0;">' +
-          '<label class="field-label">開始燃料（スタート時）</label>' +
-          '<div class="num-field"><input type="number" step="0.1" min="0" data-field="startFuel" value="' + state.startFuel + '"><span>L</span></div>' +
-        '</div>';
+  function setMode(m){
+    mode = m;
+    document.getElementById('modePan').classList.toggle('primary', m==='pan');
+    document.getElementById('modeTrace').classList.toggle('primary', m==='trace');
+    document.getElementById('modePoint').classList.toggle('primary', m==='point');
+    if(m==='trace'){
+      map.dragging.disable();
+      container.style.touchAction = 'none';
+      container.style.cursor = 'crosshair';
     } else {
-      startFuelBlock =
-        '<div style="padding:12px 16px 0;">' +
-          '<label class="field-label">開始燃料（リフューエル後）</label>' +
-          '<div class="readonly-value" id="sec-' + i + '-start-display">' + fmt(r.remain) + ' <span>L</span></div>' +
-        '</div>';
+      map.dragging.enable();
+      container.style.touchAction = '';
+      container.style.cursor = m==='point' ? 'crosshair' : '';
     }
+  }
+  document.getElementById('modePan').onclick = ()=>setMode('pan');
+  document.getElementById('modeTrace').onclick = ()=>setMode('trace');
+  document.getElementById('modePoint').onclick = ()=>setMode('point');
 
-    var overrideResetDisplay = (r.liaisonOverridden || r.ssOverridden) ? "flex" : "none";
-
-    return (
-      refuelCard +
-      '<div class="card">' +
-        '<div class="card-head"><h3 class="card-title strong">' + esc(r.name) + '</h3></div>' +
-        '<div class="grid-2">' +
-          '<div>' +
-            '<label class="field-label">リエゾン距離 <span class="amber-tag" id="sec-' + i + '-li-tag" style="display:' + (r.liaisonOverridden ? "inline" : "none") + '">(手動)</span></label>' +
-            '<div class="num-field"><input type="number" step="0.01" min="0" data-section-name="' + esc(r.name) + '" data-field="liaisonOverride" value="' + fmt(r.liaisonKm) + '"><span>km</span></div>' +
-          '</div>' +
-          '<div>' +
-            '<label class="field-label">SS距離 <span class="amber-tag" id="sec-' + i + '-ss-tag" style="display:' + (r.ssOverridden ? "inline" : "none") + '">(手動)</span></label>' +
-            '<div class="num-field"><input type="number" step="0.01" min="0" data-section-name="' + esc(r.name) + '" data-field="ssOverride" value="' + fmt(r.ssKm) + '"><span>km</span></div>' +
-          '</div>' +
-        '</div>' +
-        '<div style="padding:6px 16px 0;">' +
-          '<button class="link-btn" id="sec-' + i + '-reset-btn" data-action="reset-override" data-section-name="' + esc(r.name) + '" style="display:' + overrideResetDisplay + ';">' +
-            '↺ <span id="sec-' + i + '-reset-label">表からの自動計算値に戻す（リエゾン ' + fmt(r.baseLiaisonKm) + ' / SS ' + fmt(r.baseSsKm) + ' km）</span>' +
-          '</button>' +
-        '</div>' +
-        startFuelBlock +
-        '<div class="readout">' +
-          '<div class="readout-row"><span id="sec-' + i + '-liaison-fuel">リエゾン ' + fmt(r.liaisonFuel) + ' L</span><span id="sec-' + i + '-ss-fuel">SS ' + fmt(r.ssFuel) + ' L</span></div>' +
-          '<div class="required-row"><span class="required-label">必要燃料</span><span class="required-value" id="sec-' + i + '-required">' + fmt(r.required) + '<span>L</span></span></div>' +
-          '<div class="margin-box ' + (r.ok ? "ok" : "bad") + '" id="sec-' + i + '-margin-box">' +
-            '<span class="margin-status"><span id="sec-' + i + '-status-icon">' + (r.ok ? "✓" : "⚠") + '</span><span id="sec-' + i + '-status-text">' + (r.ok ? "燃料は足ります" : "燃料不足の可能性") + '</span></span>' +
-            '<span class="margin-value" id="sec-' + i + '-margin-value">' + (r.margin >= 0 ? "+" : "") + fmt(r.margin) + ' L</span>' +
-          '</div>' +
-        '</div>' +
-      '</div>'
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      pos => map.setView([pos.coords.latitude, pos.coords.longitude], 13),
+      () => {}, {timeout:2500}
     );
   }
-
-  function printSheetHtml(results, totals){
-    var rowsHtml = state.rows.map(function(r){
-      return '<tr><td>' + esc(r.tc) + '</td><td>' + esc(r.location) + '</td><td class="r">' + (r.ss == null ? "" : r.ss) +
-        '</td><td class="r">' + (r.li == null ? "" : r.li) + '</td><td>' + esc(r.section) + '</td></tr>';
-    }).join("");
-
-    var resultsHtml = results.map(function(r, i){
-      return '<tr><td>' + esc(r.name) + '</td><td class="r">' + fmt(r.liaisonKm) + '</td><td class="r">' + fmt(r.ssKm) +
-        '</td><td class="r">' + (i === 0 ? "—" : fmt(r.refuel)) + '</td><td class="r">' + fmt(r.remain) +
-        '</td><td class="r">' + fmt(r.required) + '</td><td class="r">' + (r.margin >= 0 ? "+" : "") + fmt(r.margin) +
-        (r.ok ? "" : "（不足）") + '</td></tr>';
-    }).join("");
-
-    return (
-      '<h1 style="font-size:18px;font-weight:700;margin:0 0 4px;">' + esc(state.eventTitle) + ' — 燃料計算レポート</h1>' +
-      '<p style="font-size:12px;color:#555;margin:0 0 16px;">燃費設定：リエゾン ' + state.liaisonRate + ' km/L ／ SS ' + state.ssRate + ' km/L</p>' +
-      '<table><thead><tr><th>TC</th><th>地点</th><th class="r">SS(km)</th><th class="r">Liaison(km)</th><th>区分</th></tr></thead><tbody>' + rowsHtml + '</tbody></table>' +
-      '<table><thead><tr><th>セクション</th><th class="r">リエゾン(km)</th><th class="r">SS(km)</th><th class="r">リフューエル(L)</th><th class="r">開始燃料(L)</th><th class="r">必要燃料(L)</th><th class="r">過不足(L)</th></tr></thead><tbody>' + resultsHtml + '</tbody></table>' +
-      '<p style="font-size:12px;">合計：リエゾン ' + fmt(totals.liaisonKm) + ' km ／ SS ' + fmt(totals.ssKm) + ' km ／ 総必要燃料 ' + fmt(totals.required) + ' L</p>'
-    );
+  mapReady = true;
+}catch(err){
+  console.error(err);
+  const el = document.getElementById('map');
+  if(el){
+    el.innerHTML = '<div style="padding:20px;color:#c9453a;font-size:13px;line-height:1.6;">地図ライブラリ(Leaflet)の読み込みに失敗しました。ネットワーク接続、または広告/トラッカーブロッカーの設定をご確認のうえ、ページを再読み込みしてください。<br><br>詳細: '+err.message+'</div>';
   }
+  const st = document.getElementById('status');
+  if(st) st.textContent = '⚠ 地図の読み込みに失敗しました。再読み込みをお試しください。';
+}
 
-  function render(){
-    var calc = computeAll();
-    var results = calc.results, totals = calc.totals;
-
-    var sectionsHtml = results.map(function(r, i){
-      return sectionBlockHtml(r, i, i > 0 ? results[i-1].name : null);
-    }).join("");
-
-    var html =
-      '<div class="header no-print">' +
-        '<div style="flex:1;min-width:0;">' +
-          '<div class="eyebrow">⏱ Fuel Trip Computer</div>' +
-          '<input class="title-input" id="title-input" data-field="eventTitle" value="' + esc(state.eventTitle) + '">' +
-          '<p class="subtitle">セクション別 必要燃料計算</p>' +
-        '</div>' +
-        '<button class="btn-print" data-action="print">🖨 PDF出力</button>' +
-      '</div>' +
-
-      '<div class="content no-print">' +
-
-        '<div class="card card-pad">' +
-          '<h2 class="card-title">アイテナリーを取り込む</h2>' +
-          '<p class="hint">写真からTC・SS・リエゾン距離を自動で読み取り、下の表に反映します。</p>' +
-          '<div class="row-2">' +
-            '<button class="btn-secondary" id="camera-btn" ' + (state.importing ? "disabled" : "") + '>📷 カメラで撮影</button>' +
-            '<button class="btn-secondary" id="gallery-btn" ' + (state.importing ? "disabled" : "") + '>🖼 アルバムから選択</button>' +
-          '</div>' +
-          '<input type="file" id="camera-input" accept="image/*" capture="environment" data-action="import-camera" style="display:none;">' +
-          '<input type="file" id="gallery-input" accept="image/*" data-action="import-gallery" style="display:none;">' +
-          (state.importing ? '<p class="msg-amber">画像を読み取っています…</p>' : "") +
-          (state.importError ? '<p class="msg-red">' + esc(state.importError) + '</p>' : "") +
-        '</div>' +
-
-        '<div class="card">' +
-          '<div class="card-head"><h2 class="card-title">アイテナリー（文字起こし表）</h2>' +
-            '<button class="link-btn" data-action="add-row">＋ 行を追加</button></div>' +
-          '<div class="table-wrap"><table>' +
-            '<thead><tr><th>TC</th><th>地点</th><th class="r">SS(km)</th><th class="r">Liaison(km)</th><th>区分</th><th></th></tr></thead>' +
-            '<tbody>' + state.rows.map(rowHtml).join("") + '</tbody>' +
-          '</table></div>' +
-        '</div>' +
-
-        '<div class="card card-pad">' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
-            '<h2 class="card-title">燃費（km / L）</h2>' +
-            '<button class="link-btn" data-action="reset">↺ リセット</button>' +
-          '</div>' +
-          '<div class="grid-2" style="padding:0;">' +
-            '<div><label class="field-label">リエゾン</label><div class="num-field"><input type="number" step="0.1" min="0" data-field="liaisonRate" value="' + state.liaisonRate + '"><span>km/L</span></div></div>' +
-            '<div><label class="field-label">SS</label><div class="num-field"><input type="number" step="0.1" min="0" data-field="ssRate" value="' + state.ssRate + '"><span>km/L</span></div></div>' +
-          '</div>' +
-        '</div>' +
-
-        sectionsHtml +
-
-        '<div class="card card-pad">' +
-          '<div style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;margin-bottom:12px;">⛽ ラリー全体（参考）</div>' +
-          '<div class="totals-grid">' +
-            '<div class="totals-cell"><div class="totals-label">リエゾン計</div><div class="totals-value" id="totals-liaison">' + fmt(totals.liaisonKm) + '</div><div class="totals-unit">km</div></div>' +
-            '<div class="totals-cell"><div class="totals-label">SS計</div><div class="totals-value" id="totals-ss">' + fmt(totals.ssKm) + '</div><div class="totals-unit">km</div></div>' +
-            '<div class="totals-cell hi"><div class="totals-label hi">総必要燃料</div><div class="totals-value hi" id="totals-required">' + fmt(totals.required) + '</div><div class="totals-unit">L</div></div>' +
-          '</div>' +
-          '<p class="foot-note">※ Section-1の残り燃料は自動的にSection-2へ繰り越されます。セクション間で給油した場合は「リフューエル」欄にリットル数を入力すると、次セクションの開始燃料に自動加算されます。各セクションのリエゾン/SS距離は表からの自動集計が既定値ですが、直接編集して上書きすることもできます。区分（Section-1等）は表の「区分」列で自由に編集できます。</p>' +
-        '</div>' +
-
-      '</div>' +
-
-      '<div id="print-sheet">' + printSheetHtml(results, totals) + '</div>';
-
-    document.getElementById("app").innerHTML = html;
-    document.title = state.eventTitle + " | 燃料計算";
-
-    var cameraBtn = document.getElementById("camera-btn");
-    var galleryBtn = document.getElementById("gallery-btn");
-    if(cameraBtn) cameraBtn.addEventListener("click", function(){ document.getElementById("camera-input").click(); });
-    if(galleryBtn) galleryBtn.addEventListener("click", function(){ document.getElementById("gallery-input").click(); });
-  }
-
-  function recompute(){
-    var calc = computeAll();
-    var results = calc.results, totals = calc.totals;
-
-    results.forEach(function(r, i){
-      setText("sec-" + i + "-liaison-fuel", "リエゾン " + fmt(r.liaisonFuel) + " L");
-      setText("sec-" + i + "-ss-fuel", "SS " + fmt(r.ssFuel) + " L");
-      setText("sec-" + i + "-required", fmt(r.required));
-      setText("sec-" + i + "-margin-value", (r.margin >= 0 ? "+" : "") + fmt(r.margin) + " L");
-      setText("sec-" + i + "-status-text", r.ok ? "燃料は足ります" : "燃料不足の可能性");
-      setText("sec-" + i + "-status-icon", r.ok ? "✓" : "⚠");
-
-      var box = document.getElementById("sec-" + i + "-margin-box");
-      if(box) box.className = "margin-box " + (r.ok ? "ok" : "bad");
-
-      if(i > 0){
-        setText("sec-" + i + "-start-display", fmt(r.remain) + " L");
-        setText("sec-" + i + "-refuel-eq", fmt(r.prevLeftover) + " L + " + fmt(r.refuel) + " L = " + fmt(r.remain) + " L（" + r.name + " 開始時）");
-      }
-
-      var liTag = document.getElementById("sec-" + i + "-li-tag");
-      if(liTag) liTag.style.display = r.liaisonOverridden ? "inline" : "none";
-      var ssTag = document.getElementById("sec-" + i + "-ss-tag");
-      if(ssTag) ssTag.style.display = r.ssOverridden ? "inline" : "none";
-      var resetBtn = document.getElementById("sec-" + i + "-reset-btn");
-      if(resetBtn) resetBtn.style.display = (r.liaisonOverridden || r.ssOverridden) ? "flex" : "none";
-      var resetLabel = document.getElementById("sec-" + i + "-reset-label");
-      if(resetLabel) resetLabel.textContent = "表からの自動計算値に戻す（リエゾン " + fmt(r.baseLiaisonKm) + " / SS " + fmt(r.baseSsKm) + " km）";
-    });
-
-    setText("totals-liaison", fmt(totals.liaisonKm));
-    setText("totals-ss", fmt(totals.ssKm));
-    setText("totals-required", fmt(totals.required));
-
-    var sheet = document.getElementById("print-sheet");
-    if(sheet) sheet.innerHTML = printSheetHtml(results, totals);
-
-    document.title = state.eventTitle + " | 燃料計算";
-  }
-
-  // ---------- state mutation from DOM ----------
-  function applyFieldUpdate(target){
-    var rowId = target.dataset.rowId;
-    var sectionName = target.dataset.sectionName;
-    var field = target.dataset.field;
-    if(!field) return;
-
-    if(rowId){
-      var row = state.rows.find(function(r){ return r.id === rowId; });
-      if(!row) return;
-      if(field === "ss" || field === "li"){
-        row[field] = target.value === "" ? null : parseFloat(target.value);
-      } else {
-        row[field] = target.value;
-      }
-      return;
-    }
-
-    if(sectionName){
-      if(field === "liaisonOverride"){
-        state.sectionOverrides[sectionName] = state.sectionOverrides[sectionName] || {};
-        state.sectionOverrides[sectionName].liaisonKm = target.value === "" ? 0 : parseFloat(target.value);
-      } else if(field === "ssOverride"){
-        state.sectionOverrides[sectionName] = state.sectionOverrides[sectionName] || {};
-        state.sectionOverrides[sectionName].ssKm = target.value === "" ? 0 : parseFloat(target.value);
-      } else if(field === "refuel"){
-        state.refuels[sectionName] = target.value === "" ? 0 : parseFloat(target.value);
-      }
-      return;
-    }
-
-    if(field === "liaisonRate") state.liaisonRate = target.value === "" ? 0 : parseFloat(target.value);
-    else if(field === "ssRate") state.ssRate = target.value === "" ? 0 : parseFloat(target.value);
-    else if(field === "startFuel") state.startFuel = target.value === "" ? 0 : parseFloat(target.value);
-    else if(field === "eventTitle") state.eventTitle = target.value;
-  }
-
-  // ---------- image import via Claude vision ----------
-  function handleImportFile(file){
-    if(!file) return;
-    state.importing = true;
-    state.importError = "";
-    render();
-
-    fileToBase64(file).then(function(base64){
-      var mediaType = file.type || "image/jpeg";
-      var prompt = "これはラリー競技のアイテナリー（行程表）の画像です。次のJSONオブジェクトだけを出力してください。説明文やコードフェンスは一切含めないでください。\n\n" +
-        '{"title":"表の上部などに書かれている大会名(見つからなければ空文字)","rows":[{"tc":"TC番号やSS番号など","location":"地点名","ss":SS区間距離のkm数値またはnull,"li":リエゾン距離のkm数値またはnull,"section":"前半後半など区分の名前。区分が無い行(スタート/サービス等)は\\"-\\"","due":"到着予定時刻や参考時刻(文字列、無ければ空文字)"}]}\n\n' +
-        "数値はkm単位の数値のみ(単位や括弧は除く)。読み取れない/存在しない値はnullにしてください。";
-
-      return fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 4096,
-          messages: [{
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
-              { type: "text", text: prompt }
-            ]
-          }]
-        })
+/* ===================== CURRENT LOCATION ("locate me") ===================== */
+// Shared helper: fetches a one-shot GPS fix, drops/updates a pulsing blue dot
+// marker on the given map, and centers the map on it. Works the same way on
+// the route-creation map and the drive-mode mini map.
+function locateOnMap(mapInstance, getMarker, setMarker, onStatus, zoomLevel){
+  if(!mapInstance){ onStatus('⚠ 地図が読み込まれていないため現在地を表示できません。'); return; }
+  if(!navigator.geolocation){ onStatus('⚠ このブラウザは位置情報(Geolocation)に対応していません。'); return; }
+  onStatus('📍 現在地を取得しています…');
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      const {latitude, longitude} = pos.coords;
+      const existing = getMarker();
+      if(existing) mapInstance.removeLayer(existing);
+      const icon = L.divIcon({
+        className:'',
+        html:'<div class="locate-dot-wrap"><div class="locate-dot-pulse"></div><div class="locate-dot"></div></div>',
+        iconSize:[20,20], iconAnchor:[10,10]
       });
-    }).then(function(response){
-      return response.json();
-    }).then(function(data){
-      if(data.error) throw new Error(data.error.message || "API error");
+      const marker = L.marker([latitude, longitude], {icon, zIndexOffset:2000}).addTo(mapInstance);
+      setMarker(marker);
+      mapInstance.setView([latitude, longitude], zoomLevel || Math.max(mapInstance.getZoom(), 15));
+      onStatus('✓ 現在地を地図の中心に表示しました。');
+    },
+    (err)=>{
+      onStatus('⚠ 現在地を取得できませんでした（' + err.message + '）。この画面(プレビュー)では位置情報がブロックされている場合があります。HTMLをダウンロードして実機のブラウザで直接開くとご利用いただけます。');
+    },
+    {enableHighAccuracy:true, timeout:8000, maximumAge:5000}
+  );
+}
 
-      var text = (data.content || []).map(function(b){ return b.type === "text" ? b.text : ""; }).filter(Boolean).join("\n");
-      var start = text.indexOf("{");
-      var end = text.lastIndexOf("}");
-      if(start === -1 || end === -1 || end < start) throw new Error("no JSON object found in response");
+let meMarker = null;
+document.getElementById('btnLocateMe').onclick = ()=>{
+  locateOnMap(map, ()=>meMarker, (m)=>{meMarker=m;}, setStatus, 15);
+};
 
-      var parsed = JSON.parse(text.slice(start, end + 1));
-      var parsedRows = Array.isArray(parsed) ? parsed : parsed.rows;
-      if(!Array.isArray(parsedRows) || parsedRows.length === 0) throw new Error("empty");
-
-      var newRows = parsedRows.map(function(row){
-        return {
-          id: newId(),
-          tc: row.tc == null ? "" : row.tc,
-          location: row.location == null ? "" : row.location,
-          ss: (row.ss === undefined || row.ss === null) ? null : Number(row.ss),
-          li: (row.li === undefined || row.li === null) ? null : Number(row.li),
-          section: (row.section && String(row.section).trim()) ? String(row.section).trim() : "-",
-          due: row.due == null ? "" : row.due
-        };
-      });
-
-      state.rows = newRows;
-      state.sectionOverrides = {};
-      if(!Array.isArray(parsed) && parsed.title && String(parsed.title).trim()){
-        state.eventTitle = String(parsed.title).trim();
-      }
-      state.importing = false;
-      state.importError = "";
-      render();
-    }).catch(function(err){
-      console.error("Itinerary import failed:", err);
-      state.importing = false;
-      state.importError = "読み取りに失敗しました。画像がはっきり写っているか確認して再度お試しください。";
-      render();
-    });
+function redrawPath(){
+  if(!mapReady) return;
+  waypointMarkers.forEach(m=>map.removeLayer(m));
+  waypointMarkers = [];
+  if(draftLayer){ map.removeLayer(draftLayer); draftLayer = null; }
+  if(pathPoints.length){
+    const latlngs = pathPoints.map(p=>[p.lat, p.lng]);
+    draftLayer = L.polyline(latlngs, {color:'#8b909a', weight:3, opacity:.85, dashArray:'2,7'}).addTo(map);
+    const startIcon = L.divIcon({className:'', html:'<div class="num-marker" style="background:#3d7aab;">S</div>', iconSize:[20,20], iconAnchor:[10,10]});
+    waypointMarkers.push(L.marker(latlngs[0], {icon:startIcon}).addTo(map));
+    if(latlngs.length>1){
+      const endIcon = L.divIcon({className:'', html:'<div class="num-marker" style="background:#c9453a;">E</div>', iconSize:[20,20], iconAnchor:[10,10]});
+      waypointMarkers.push(L.marker(latlngs[latlngs.length-1], {icon:endIcon}).addTo(map));
+    }
   }
+  document.getElementById('ptCount').textContent = pathPoints.length + ' pts';
+}
 
-  // ---------- event delegation ----------
-  var app = document.getElementById("app");
+document.getElementById('btnUndo').onclick = ()=>{
+  historyBatches.pop();
+  rebuildPathPoints();
+  redrawPath();
+};
+document.getElementById('btnReset').onclick = ()=>{
+  historyBatches = []; pathPoints = []; redrawPath();
+  if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
+  routeCoordsLatLng = null; notes=[];
+  renderNotesTable(); renderSheet();
+  setStatus('');
+};
 
-  app.addEventListener("input", function(e){
-    if(!e.target || !e.target.dataset) return;
-    if(e.target.dataset.field === "section") return; // handled on change, to avoid full rerender mid-typing
-    if(e.target.dataset.action) return;
-    applyFieldUpdate(e.target);
-    recompute();
-  });
+/* ===================== ROUTE FETCH (OSRM, no API key) ===================== */
+document.getElementById('btnRoute').onclick = buildSmoothRoute;
+document.getElementById('btnRouteApi').onclick = tryFetchApiRoute;
 
-  app.addEventListener("change", function(e){
-    if(!e.target || !e.target.dataset) return;
+function buildSmoothRoute(){
+  if(!mapReady){ setStatus('⚠ 地図が読み込まれていないため実行できません。ページを再読み込みしてください。'); return; }
+  if(pathPoints.length < 2){
+    setStatus('区間には最低2点が必要です。道路をなぞるか、点を打ってください。'); return;
+  }
+  routeCoordsLatLng = smoothPath(pathPoints.map(p=>[p.lng,p.lat]));
+  setStatus('✓ なぞった／打った経路をなめらかに補間して解析しました。');
+  drawRoute();
+  analyzeAndRender();
+}
 
-    if(e.target.dataset.action === "import-camera" || e.target.dataset.action === "import-gallery"){
-      var file = e.target.files && e.target.files[0];
-      e.target.value = "";
-      if(file) handleImportFile(file);
+function decimate(points, maxCount){
+  if(points.length <= maxCount) return points;
+  const result=[]; const step=(points.length-1)/(maxCount-1);
+  for(let i=0;i<maxCount;i++) result.push(points[Math.round(i*step)]);
+  return result;
+}
+
+const OSRM_HOSTS = [
+  'https://router.project-osrm.org',
+  'https://routing.openstreetmap.de/routed-car'
+];
+
+async function osrmRequest(coordStr, timeoutMs){
+  let lastErr;
+  for(const host of OSRM_HOSTS){
+    const url = `${host}/route/v1/driving/${coordStr}?overview=full&geometries=geojson`;
+    try{
+      const controller = new AbortController();
+      const t = setTimeout(()=>controller.abort(), timeoutMs);
+      const res = await fetch(url, {signal: controller.signal});
+      clearTimeout(t);
+      if(!res.ok) throw new Error('status '+res.status);
+      const data = await res.json();
+      if(!data.routes || !data.routes.length) throw new Error('no route');
+      return data.routes[0];
+    }catch(err){ lastErr = err; }
+  }
+  throw lastErr || new Error('all hosts failed');
+}
+
+async function tryFetchApiRoute(){
+  if(pathPoints.length < 2){
+    setStatus('区間には最低2点が必要です。「📍 点を打つ」で始点と終点を置くだけでもOKです。'); return;
+  }
+  setStatus('道路データAPI(実際の道路に沿ったルート)への接続を試みています…');
+  const sample = decimate(pathPoints, 25);
+  const coordStr = sample.map(p=>`${p.lng},${p.lat}`).join(';');
+  try{
+    const route = await osrmRequest(coordStr, 6000);
+    routeCoordsLatLng = route.geometry.coordinates;
+    setStatus(`✓ 道路データAPIから実際の道路形状を取得しました（距離 約${Math.round(route.distance)}m）。ナビアプリと同様、道なりに自動で結ばれています。`);
+    drawRoute();
+    analyzeAndRender();
+  }catch(err){
+    setStatus('ℹ この画面(プレビュー)からは道路データAPIに接続できませんでした。プレビューのネットワーク制限による制約です — このHTMLファイルをダウンロードしてお使いのブラウザで直接開くと、この機能が正常に動作します。今は「✏️ なぞって作成」で道路をなぞってください。');
+  }
+}
+
+async function checkApiAvailability(){
+  const badge = document.getElementById('apiBadge');
+  if(!badge) return;
+  try{
+    await osrmRequest('139.7671,35.6812;139.7005,35.6580', 4000);
+    badge.textContent = '● 利用可';
+    badge.style.color = '#5fbf6f';
+    setStatus('✓ この環境では道路データAPIが利用できます。「📍 点を打つ」で始点・終点を置き、「🌐 道路データAPIも試す」を押すと、ナビアプリのように実際の道路へ自動で沿わせたルートを作成できます。');
+  }catch(err){
+    badge.textContent = '● この画面では利用不可';
+    badge.style.color = '#c9453a';
+    setStatus('ℹ この画面(プレビュー)では道路データAPIへの接続がブロックされています。「✏️ なぞって作成」で道路を指/マウスでなぞってルートを作成してください（HTMLをダウンロードして直接ブラウザで開いた場合はAPIが使えます）。');
+  }
+}
+if(mapReady) checkApiAvailability();
+
+/* ===================== PLACE SEARCH (Nominatim, no API key) ===================== */
+let searchBusy = false;
+document.getElementById('btnSearch').onclick = doSearch;
+document.getElementById('searchInput').addEventListener('keydown', (e)=>{
+  if(e.key==='Enter'){ e.preventDefault(); doSearch(); }
+});
+
+async function doSearch(){
+  if(searchBusy) return;
+  const input = document.getElementById('searchInput');
+  const resultsEl = document.getElementById('searchResults');
+  const q = input.value.trim();
+  if(!q){ resultsEl.innerHTML=''; return; }
+  if(!mapReady){ resultsEl.innerHTML = '<div class="search-item muted">地図が読み込まれていないため検索できません。</div>'; return; }
+
+  searchBusy = true;
+  resultsEl.innerHTML = '<div class="search-item muted">検索中…</div>';
+  try{
+    const controller = new AbortController();
+    const t = setTimeout(()=>controller.abort(), 6000);
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`;
+    const res = await fetch(url, {signal: controller.signal, headers:{'Accept-Language':'ja'}});
+    clearTimeout(t);
+    if(!res.ok) throw new Error('status '+res.status);
+    const data = await res.json();
+    if(!data.length){
+      resultsEl.innerHTML = '<div class="search-item muted">見つかりませんでした。別のキーワードでお試しください。</div>';
       return;
     }
+    resultsEl.innerHTML = '';
+    data.forEach(item=>{
+      const div = document.createElement('div');
+      div.className = 'search-item';
+      div.textContent = item.display_name;
+      div.onclick = ()=>{
+        map.setView([+item.lat, +item.lon], 15);
+        resultsEl.innerHTML = '';
+        setStatus(`✓ 「${item.display_name}」に移動しました。`);
+      };
+      resultsEl.appendChild(div);
+    });
+  }catch(err){
+    resultsEl.innerHTML = '<div class="search-item muted">この画面(プレビュー)では地名検索APIに接続できませんでした。ダウンロードして直接ブラウザで開くとご利用いただけます。それまでは地図を手動でズーム・移動してください。</div>';
+  }finally{
+    searchBusy = false;
+  }
+}
 
-    if(e.target.dataset.field === "section"){
-      applyFieldUpdate(e.target);
-      render();
+function drawRoute(){
+  if(!mapReady) return;
+  if(routeLayer) map.removeLayer(routeLayer);
+  const latlngs = routeCoordsLatLng.map(c=>[c[1],c[0]]);
+  routeLayer = L.polyline(latlngs, {color:'#f2b705', weight:4, opacity:.9}).addTo(map);
+  map.fitBounds(routeLayer.getBounds(), {padding:[30,30]});
+}
+
+/* ===================== GEO MATH ===================== */
+function toRad(d){return d*Math.PI/180;}
+
+function catmullRomPoint(p0,p1,p2,p3,t){
+  const t2=t*t, t3=t2*t;
+  const calc=(a,b,c,d)=> 0.5*((2*b) + (-a+c)*t + (2*a-5*b+4*c-d)*t2 + (-a+3*b-3*c+d)*t3);
+  return [calc(p0[0],p1[0],p2[0],p3[0]), calc(p0[1],p1[1],p2[1],p3[1])];
+}
+function smoothPath(points, segmentsPerSpan=14){
+  if(points.length < 3) return points.slice();
+  const n = points.length;
+  const get = i => points[Math.max(0, Math.min(n-1, i))];
+  const result = [];
+  for(let i=0;i<n-1;i++){
+    const p0=get(i-1), p1=get(i), p2=get(i+1), p3=get(i+2);
+    for(let t=0;t<segmentsPerSpan;t++){
+      result.push(catmullRomPoint(p0,p1,p2,p3, t/segmentsPerSpan));
     }
+  }
+  result.push(points[n-1]);
+  return result;
+}
+function haversine(a,b){
+  const R=6371000;
+  const dLat=toRad(b[1]-a[1]), dLng=toRad(b[0]-a[0]);
+  const lat1=toRad(a[1]), lat2=toRad(b[1]);
+  const h=Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function bearing(a,b){
+  const lat1=toRad(a[1]), lat2=toRad(b[1]), dLng=toRad(b[0]-a[0]);
+  const y=Math.sin(dLng)*Math.cos(lat2);
+  const x=Math.cos(lat1)*Math.sin(lat2)-Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLng);
+  return (Math.atan2(y,x)*180/Math.PI + 360)%360;
+}
+function normDelta(d){ return ((d+540)%360)-180; }
+
+function resample(coords, step){
+  const cum=[0];
+  for(let i=1;i<coords.length;i++) cum.push(cum[i-1]+haversine(coords[i-1],coords[i]));
+  const total=cum[cum.length-1];
+  if(total < 1) return {points:coords.slice(), cum};
+  const pts=[]; const outCum=[];
+  let idx=0;
+  for(let d=0; d<=total; d+=step){
+    while(idx < cum.length-2 && cum[idx+1] < d) idx++;
+    const segLen = cum[idx+1]-cum[idx];
+    const frac = segLen>0 ? (d-cum[idx])/segLen : 0;
+    const a=coords[idx], b=coords[idx+1];
+    pts.push([a[0]+(b[0]-a[0])*frac, a[1]+(b[1]-a[1])*frac]);
+    outCum.push(d);
+  }
+  pts.push(coords[coords.length-1]);
+  outCum.push(total);
+  return {points:pts, cum:outCum};
+}
+
+const WHEELBASE_M = 2.5;
+const STEERING_RATIO = 15;
+const GRADE5_DEG = Math.sqrt(10*90);
+
+function requiredSteeringDeg(R){
+  if(!isFinite(R) || R<=0) return Infinity;
+  const deltaRad = Math.atan(WHEELBASE_M / R);
+  return (deltaRad * 180/Math.PI) * STEERING_RATIO;
+}
+
+function classifyByRadius(R){
+  const theta = requiredSteeringDeg(R);
+  if(theta <= 10) return 6;
+  if(theta <= GRADE5_DEG) return 5;
+  if(theta <= 90) return 4;
+  if(theta <= 180) return 3;
+  if(theta <= 360) return 2;
+  return 1;
+}
+
+function detectCorners(points){
+  const n=points.length;
+  if(n<3) return [];
+  const bearings=[];
+  for(let i=0;i<n-1;i++) bearings.push(bearing(points[i],points[i+1]));
+  const deltas=[];
+  for(let i=0;i<bearings.length-1;i++) deltas.push(normDelta(bearings[i+1]-bearings[i]));
+
+  const noiseThresh=1.2, straightRunLimit=3, minCornerAngle=8;
+  let curSum=0, curSign=0, curStart=null, straightRun=0;
+  const corners=[];
+  function close(endVertex){
+    if(Math.abs(curSum)>=minCornerAngle){
+      corners.push({vertexIndex:Math.round((curStart+endVertex)/2), startVertex:curStart, endVertex:endVertex, angle:curSum, sign:curSum>0?1:-1});
+    }
+    curSum=0; curSign=0; curStart=null; straightRun=0;
+  }
+  for(let i=0;i<deltas.length;i++){
+    const d=deltas[i], vertex=i+1;
+    if(Math.abs(d)<noiseThresh){
+      if(curSign!==0){ straightRun++; if(straightRun>=straightRunLimit) close(vertex); }
+      continue;
+    }
+    const sign=d>0?1:-1;
+    if(curSign===0){ curSign=sign; curSum=d; curStart=vertex; straightRun=0; }
+    else if(sign===curSign){ curSum+=d; straightRun=0; }
+    else { close(vertex); curSign=sign; curSum=d; curStart=vertex; straightRun=0; }
+  }
+  if(curSign!==0) close(deltas.length);
+  return corners;
+}
+
+function analyzeAndRender(){
+  if(!routeCoordsLatLng) return;
+  let coords = routeCoordsLatLng;
+  if(direction==='rev') coords = [...coords].reverse();
+  const {points, cum} = resample(coords, 8);
+  const corners = detectCorners(points);
+
+  notes = [];
+  let prevCum = 0;
+  let reportedCornerCount = 0;
+  corners.forEach(c=>{
+    const arcLen = cum[c.endVertex] - cum[c.startVertex];
+    const angleRad = Math.abs(c.angle) * Math.PI/180;
+    const radius = angleRad>1e-6 ? arcLen/angleRad : 0;
+    const theta = requiredSteeringDeg(radius);
+    if(theta < 10) return;
+    notes.push({
+      distance: Math.round(cum[c.vertexIndex]-prevCum),
+      dir: c.sign>0 ? 'R' : 'L',
+      grade: classifyByRadius(radius)
+    });
+    prevCum = cum[c.vertexIndex];
+    reportedCornerCount++;
+  });
+  const finishDist = Math.round(cum[cum.length-1]-prevCum);
+  const totalDistM = Math.round(cum[cum.length-1]);
+  notes.push({distance:finishDist, dir:'FINISH', grade:null});
+
+  document.getElementById('totalDist').textContent =
+    `(スタート→フィニッシュ 全長 約${totalDistM}m / コーナー${reportedCornerCount}箇所)`;
+
+  renderNotesTable();
+  renderSheet();
+  driveDataStale = true;
+  refreshDriveEmptyState();
+}
+
+/* ===================== NOTATION RULES ===================== */
+function formatGap(m){
+  if(m < 20) return {text:'・', kind:'symbol'};
+  if(m < 30) return {text:'→', kind:'symbol'};
+  return {text: String(Math.round(m/10)*10), kind:'dist'};
+}
+function buildTokens(notesArr){
+  const tokens=[];
+  notesArr.forEach(n=>{
+    const g = formatGap(n.distance);
+    tokens.push(g);
+    if(n.dir==='FINISH') tokens.push({text:'FINISH', kind:'finish'});
+    else tokens.push({text:`${n.grade}${n.dir}`, kind:n.dir});
+  });
+  return tokens;
+}
+function chunkTokens(tokens, size){
+  const lines=[];
+  for(let i=0;i<tokens.length;i+=size) lines.push(tokens.slice(i,i+size));
+  return lines;
+}
+
+/* ===================== DIRECTION TOGGLE ===================== */
+document.getElementById('dirFwd').onclick = ()=>{ setDirection('fwd'); };
+document.getElementById('dirRev').onclick = ()=>{ setDirection('rev'); };
+function setDirection(d){
+  direction=d;
+  document.getElementById('dirFwd').classList.toggle('active', d==='fwd');
+  document.getElementById('dirRev').classList.toggle('active', d==='rev');
+  if(routeCoordsLatLng) analyzeAndRender();
+}
+
+/* ===================== NOTES TABLE (editable) ===================== */
+function renderNotesTable(){
+  const body=document.getElementById('notesBody');
+  body.innerHTML='';
+  notes.forEach((n,i)=>{
+    const tr=document.createElement('tr');
+    const g = formatGap(n.distance);
+    if(n.dir==='FINISH'){
+      tr.innerHTML = `
+        <td><input type="number" value="${n.distance}" data-i="${i}" data-f="distance" style="width:60px;"></td>
+        <td style="color:var(--amber);font-weight:700;">${g.text}</td>
+        <td colspan="2" style="color:var(--muted);font-weight:700;">FINISH</td>
+        <td></td>`;
+    } else {
+      tr.innerHTML = `
+        <td><input type="number" value="${n.distance}" data-i="${i}" data-f="distance" style="width:60px;"></td>
+        <td style="color:var(--amber);font-weight:700;">${g.text}</td>
+        <td>
+          <select data-i="${i}" data-f="dir">
+            <option value="R" ${n.dir==='R'?'selected':''}>R</option>
+            <option value="L" ${n.dir==='L'?'selected':''}>L</option>
+          </select>
+        </td>
+        <td>
+          <select data-i="${i}" data-f="grade">
+            ${[1,2,3,4,5,6].map(g2=>`<option value="${g2}" ${n.grade===g2?'selected':''}>${g2}</option>`).join('')}
+          </select>
+        </td>
+        <td>
+          <button class="rowbtn" data-i="${i}" data-act="up">↑</button>
+          <button class="rowbtn" data-i="${i}" data-act="down">↓</button>
+          <button class="rowbtn danger" data-i="${i}" data-act="del">✕</button>
+        </td>`;
+    }
+    body.appendChild(tr);
   });
 
-  app.addEventListener("click", function(e){
-    var btn = e.target.closest("[data-action]");
-    if(!btn) return;
-    var action = btn.dataset.action;
+  body.querySelectorAll('input,select').forEach(el=>{
+    el.onchange = (e)=>{
+      const i=+e.target.dataset.i, f=e.target.dataset.f;
+      let v=e.target.value;
+      if(f==='distance'||f==='grade') v=+v;
+      notes[i][f]=v;
+      renderNotesTable(); renderSheet();
+      driveDataStale = true;
+    };
+  });
+  body.querySelectorAll('button[data-act]').forEach(btn=>{
+    btn.onclick=(e)=>{
+      const i=+e.target.dataset.i, act=e.target.dataset.act;
+      if(act==='del'){ notes.splice(i,1); }
+      if(act==='up' && i>0){ [notes[i-1],notes[i]]=[notes[i],notes[i-1]]; }
+      if(act==='down' && i<notes.length-2){ [notes[i+1],notes[i]]=[notes[i],notes[i+1]]; }
+      renderNotesTable(); renderSheet();
+      driveDataStale = true;
+    };
+  });
+}
 
-    if(action === "delete-row"){
-      state.rows = state.rows.filter(function(r){ return r.id !== btn.dataset.rowId; });
-      render();
-    } else if(action === "add-row"){
-      state.rows.push({ id:newId(), tc:"", location:"新規地点", ss:null, li:null, section:"-", due:"" });
-      render();
-    } else if(action === "reset"){
-      resetState();
-      render();
-    } else if(action === "print"){
-      window.print();
-    } else if(action === "reset-override"){
-      delete state.sectionOverrides[btn.dataset.sectionName];
-      render();
-    }
+document.getElementById('btnAddCorner').onclick=()=>{
+  const insertAt = Math.max(0, notes.length-1);
+  notes.splice(insertAt,0,{distance:50, dir:'R', grade:4});
+  renderNotesTable(); renderSheet();
+  driveDataStale = true;
+};
+
+/* ===================== PACE NOTE SHEET PREVIEW ===================== */
+function renderSheet(){
+  const wrap=document.getElementById('sheetRows');
+  wrap.innerHTML='';
+  const totalM = notes.reduce((s,n)=>s+n.distance,0);
+  const meta = document.getElementById('sheetMeta');
+  if(meta) meta.textContent = notes.length ? `START ─── 区間距離 約${totalM}m ─── FINISH（${direction==='fwd'?'順方向':'逆方向'}）` : '';
+  const lines = chunkTokens(buildTokens(notes), 6);
+  lines.forEach(line=>{
+    const row=document.createElement('div');
+    row.className='sheet-line';
+    row.innerHTML = line.map(t=>`<span class="tok-${t.kind}">${t.text}</span>`).join('');
+    wrap.appendChild(row);
+  });
+  const spirals=document.getElementById('spirals');
+  spirals.innerHTML='';
+  const count=Math.max(6, Math.min(24, lines.length*2));
+  for(let i=0;i<count;i++){ const d=document.createElement('div'); spirals.appendChild(d); }
+}
+
+/* ===================== PDF EXPORT ===================== */
+document.getElementById('btnPdf').onclick = exportPdf;
+
+function exportPdf(){
+  if(!notes.length){ setStatus('先にルートを取得してください。'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'mm', format:'a4'});
+  const marginX = 16, ruleEnd = 195;
+  const rowH = 9.5, topY = 34, pageBottom = 283;
+  const tokenGap = 16;
+  const dateStr = new Date().toLocaleDateString('ja-JP');
+  const dirLabel = direction==='fwd' ? '順方向' : '逆方向';
+  const totalDist = notes.reduce((s,n)=>s+n.distance,0);
+  const lines = chunkTokens(buildTokens(notes), 6);
+
+  function drawHeader(pageNo){
+    doc.setFont('courier','bold'); doc.setFontSize(16); doc.setTextColor(20,20,20);
+    doc.text('RALLY PACE NOTES', marginX, 14);
+    doc.setFont('courier','normal'); doc.setFontSize(9); doc.setTextColor(90,90,90);
+    doc.text(`方向: ${dirLabel}   START→FINISH 区間距離: 約${totalDist}m   作成日: ${dateStr}   p.${pageNo}`, marginX, 20);
+    doc.setDrawColor(30,30,30); doc.setLineWidth(0.4);
+    doc.line(marginX, 23, ruleEnd, 23);
+    doc.setFont('courier','normal'); doc.setFontSize(7.5); doc.setTextColor(140,140,140);
+    doc.text('・=0〜20m(すぐ) →=20〜30m(から) 数字=10m単位の距離(m)　｜　曲率(30km/h時ハンドル角): 6=10° 4=90° 3=180° 2=360° 1=それ以上', marginX, 28);
+  }
+
+  let page=1, y=topY;
+  drawHeader(page);
+
+  lines.forEach(line=>{
+    if(y > pageBottom){ doc.addPage(); page++; y=topY; drawHeader(page); }
+    doc.setDrawColor(210,196,176); doc.setLineWidth(0.25);
+    doc.line(marginX-4, y+rowH-3.2, ruleEnd, y+rowH-3.2);
+
+    let x = marginX;
+    line.forEach(t=>{
+      doc.setFont('courier','bold');
+      if(t.kind==='symbol'){ doc.setFontSize(15); doc.setTextColor(138,114,72); }
+      else if(t.kind==='dist'){ doc.setFontSize(11); doc.setTextColor(40,40,40); }
+      else if(t.kind==='R'){ doc.setFontSize(12); doc.setTextColor(201,69,58); }
+      else if(t.kind==='L'){ doc.setFontSize(12); doc.setTextColor(61,122,171); }
+      else { doc.setFontSize(11); doc.setTextColor(20,20,20); }
+      doc.text(t.text, x, y+rowH-4.5);
+      x += tokenGap;
+    });
+    y += rowH;
   });
 
-  render();
-})();
+  doc.save('pacenote.pdf');
+}
+
+function setStatus(msg){ document.getElementById('status').textContent = msg; }
+
+/* ===================================================================== */
+/* ===================== SAVED ROUTES (name & recall) ==================== */
+/* ===================================================================== */
+// Saved to localStorage so a route + its pace notes can be recalled later in
+// the same browser. Also exportable/importable as JSON so a route can be
+// carried between devices or survive a cleared cache.
+const SAVED_ROUTES_KEY = 'pacenote_saved_routes_v1';
+let storageAvailable = true;
+
+function readSavedRoutes(){
+  try{
+    const raw = localStorage.getItem(SAVED_ROUTES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }catch(err){
+    storageAvailable = false;
+    return [];
+  }
+}
+function writeSavedRoutes(list){
+  try{
+    localStorage.setItem(SAVED_ROUTES_KEY, JSON.stringify(list));
+    return true;
+  }catch(err){
+    storageAvailable = false;
+    setStatus('⚠ この環境ではブラウザの保存機能(localStorage)が使えないため、一覧には保存されません。「⬇」エクスポートでJSONファイルとして保存してください。');
+    return false;
+  }
+}
+
+function renderSavedList(){
+  const wrap = document.getElementById('savedList');
+  const list = readSavedRoutes();
+  if(!list.length){
+    wrap.innerHTML = '<div class="saved-empty">まだ保存されたルートはありません。名前を入力して「💾 保存」を押すと、ここに一覧表示されます。</div>';
+    return;
+  }
+  wrap.innerHTML = '';
+  list.slice().reverse().forEach(entry=>{
+    const cornerCount = (entry.notes||[]).filter(n=>n.dir!=='FINISH').length;
+    const dateStr = new Date(entry.savedAt).toLocaleString('ja-JP', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const row = document.createElement('div');
+    row.className = 'saved-item';
+    row.innerHTML = `
+      <div class="meta">
+        <div class="name">${escapeHtml(entry.name)}</div>
+        <div class="sub">${dateStr} ・ コーナー${cornerCount} ・ ${entry.direction==='rev'?'逆方向':'順方向'}</div>
+      </div>
+      <button class="rowbtn" data-act="load" data-id="${entry.id}">📂 読込</button>
+      <button class="rowbtn" data-act="export" data-id="${entry.id}">⬇</button>
+      <button class="rowbtn danger" data-act="delete" data-id="${entry.id}">✕</button>
+    `;
+    wrap.appendChild(row);
+  });
+  wrap.querySelectorAll('button[data-act]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const id = btn.dataset.id, act = btn.dataset.act;
+      if(act==='load') loadSavedRouteById(id);
+      if(act==='export') exportSavedRouteById(id);
+      if(act==='delete') deleteSavedRouteById(id);
+    };
+  });
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+document.getElementById('btnSaveRoute').onclick = ()=>{
+  const nameInput = document.getElementById('saveNameInput');
+  const name = nameInput.value.trim();
+  if(!name){ setStatus('⚠ 保存するルート名を入力してください。'); return; }
+  if(!routeCoordsLatLng || !notes.length){ setStatus('⚠ 先にルートを作成してコーナーを検出してから保存してください。'); return; }
+  const entry = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    name,
+    savedAt: new Date().toISOString(),
+    direction,
+    historyBatches,
+    routeCoordsLatLng,
+    notes: notes.map(n=>({distance:n.distance, dir:n.dir, grade:n.grade}))
+  };
+  const list = readSavedRoutes();
+  list.push(entry);
+  const ok = writeSavedRoutes(list);
+  renderSavedList();
+  if(ok){ setStatus(`✓ 「${name}」として保存しました。`); nameInput.value=''; }
+};
+
+function loadSavedRouteById(id){
+  const list = readSavedRoutes();
+  const entry = list.find(e=>e.id===id);
+  if(!entry){ setStatus('⚠ 保存データが見つかりませんでした。'); return; }
+  historyBatches = entry.historyBatches || [];
+  rebuildPathPoints();
+  routeCoordsLatLng = entry.routeCoordsLatLng || null;
+  notes = (entry.notes || []).map(n=>({...n}));
+  direction = entry.direction === 'rev' ? 'rev' : 'fwd';
+  document.getElementById('dirFwd').classList.toggle('active', direction==='fwd');
+  document.getElementById('dirRev').classList.toggle('active', direction==='rev');
+  redrawPath();
+  if(routeCoordsLatLng) drawRoute();
+  renderNotesTable();
+  renderSheet();
+  driveDataStale = true;
+  drivePrepared = false;
+  refreshDriveEmptyState();
+  const totalDistM = notes.reduce((s,n)=>s+n.distance,0);
+  const cornerCount = notes.filter(n=>n.dir!=='FINISH').length;
+  document.getElementById('totalDist').textContent = `(スタート→フィニッシュ 全長 約${totalDistM}m / コーナー${cornerCount}箇所)`;
+  setStatus(`✓ 「${entry.name}」を読み込みました。`);
+}
+
+function deleteSavedRouteById(id){
+  const list = readSavedRoutes();
+  const entry = list.find(e=>e.id===id);
+  if(!entry) return;
+  if(!confirm(`「${entry.name}」を削除しますか？この操作は取り消せません。`)) return;
+  writeSavedRoutes(list.filter(e=>e.id!==id));
+  renderSavedList();
+}
+
+function exportSavedRouteById(id){
+  const list = readSavedRoutes();
+  const entry = list.find(e=>e.id===id);
+  if(!entry) return;
+  const blob = new Blob([JSON.stringify(entry, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (entry.name || 'route').replace(/[\\/:*?"<>|]/g,'_') + '.pacenote.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+
+document.getElementById('btnImportRoute').onclick = ()=>{
+  document.getElementById('importFileInput').click();
+};
+document.getElementById('importFileInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const entry = JSON.parse(reader.result);
+      if(!entry || !entry.routeCoordsLatLng || !Array.isArray(entry.notes)){
+        throw new Error('ファイルの形式が正しくありません');
+      }
+      entry.id = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+      entry.savedAt = entry.savedAt || new Date().toISOString();
+      entry.name = entry.name || file.name.replace(/\.json$/i,'');
+      const list = readSavedRoutes();
+      list.push(entry);
+      writeSavedRoutes(list);
+      renderSavedList();
+      setStatus(`✓ 「${entry.name}」をインポートして一覧に追加しました。`);
+    }catch(err){
+      setStatus('⚠ JSONの読み込みに失敗しました: ' + err.message);
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+});
+
+renderSavedList();
+
+/* ===================================================================== */
+/* ===================== DRIVE / CO-DRIVER MODE ========================= */
+/* ===================================================================== */
+
+let driveDataStale = true;      // notes/route changed since last prepareDrive()
+let drivePrepared = false;
+let driveActive = false;
+let driveMethod = null;         // 'gps' | 'sim'
+
+let routePtsCache = null;       // [[lng,lat],...] fine-resampled, oriented for current `direction`
+let routeCumCache = null;       // cumulative meters matching routePtsCache
+let totalRouteM = 0;
+
+let currentProgressM = 0;
+let lastProjIdx = -1;
+let progressInitialized = false;
+
+let watchId = null;
+let lastGpsFix = null;          // {lat,lng,t}
+
+let simIntervalId = null;
+let simProgressM = 0;
+const SIM_TICK_MS = 250;
+
+let driveMap = null, driveRouteLayer = null, driveMarker = null;
+let wakeLock = null;
+
+let lastSpokenNote = null;
+
+/* ---------- entering the tab ---------- */
+function enterDriveTab(){
+  refreshDriveEmptyState();
+  if(notes.length && routeCoordsLatLng){
+    ensureDriveMap();
+    if(!drivePrepared || driveDataStale) drawDriveRoutePreview();
+  }
+}
+
+function refreshDriveEmptyState(){
+  const has = notes.length>0 && routeCoordsLatLng;
+  document.getElementById('driveEmpty').style.display = has ? 'none' : 'block';
+  document.getElementById('driveMain').style.display = has ? 'block' : 'none';
+}
+
+/* ---------- prepare route + notes for a fresh run ---------- */
+function prepareDrive(){
+  const coordsForDirection = direction==='rev' ? [...routeCoordsLatLng].reverse() : routeCoordsLatLng;
+  const {points, cum} = resample(coordsForDirection, 5);
+  routePtsCache = points;
+  routeCumCache = cum;
+  totalRouteM = cum[cum.length-1] || 0;
+
+  let acc = 0;
+  notes.forEach(n=>{ acc += n.distance; n._abs = acc; n._announced = false; });
+
+  currentProgressM = 0;
+  simProgressM = 0;
+  lastProjIdx = -1;
+  progressInitialized = false;
+  lastGpsFix = null;
+  lastSpokenNote = null;
+
+  document.getElementById('hudDirLabel').textContent = '方向: ' + (direction==='fwd' ? '順方向' : '逆方向');
+  drawDriveRoutePreview();
+  updateHud(0);
+  drivePrepared = true;
+  driveDataStale = false;
+}
+
+function drawDriveRoutePreview(){
+  ensureDriveMap();
+  if(!driveMap || !routeCoordsLatLng) return;
+  if(driveRouteLayer){ driveMap.removeLayer(driveRouteLayer); driveRouteLayer=null; }
+  const latlngs = routeCoordsLatLng.map(c=>[c[1],c[0]]);
+  driveRouteLayer = L.polyline(latlngs, {color:'#f2b705', weight:4, opacity:.85}).addTo(driveMap);
+  driveMap.fitBounds(driveRouteLayer.getBounds(), {padding:[24,24]});
+  const startPt = direction==='rev' ? latlngs[latlngs.length-1] : latlngs[0];
+  if(driveMarker){ driveMap.removeLayer(driveMarker); driveMarker=null; }
+  const carIcon = L.divIcon({className:'', html:'<div style="font-size:22px;filter:drop-shadow(0 0 3px #000);">🚗</div>', iconSize:[24,24], iconAnchor:[12,12]});
+  driveMarker = L.marker(startPt, {icon:carIcon}).addTo(driveMap);
+}
+
+function ensureDriveMap(){
+  if(driveMap){ setTimeout(()=>driveMap.invalidateSize(), 50); return; }
+  try{
+    driveMap = L.map('mapDrive', {zoomControl:false, attributionControl:false}).setView([35.6812,139.7671], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(driveMap);
+    setTimeout(()=>driveMap.invalidateSize(), 50);
+  }catch(err){
+    console.error(err);
+  }
+}
+
+let driveMeMarker = null;
+document.getElementById('btnLocateMeDrive').onclick = ()=>{
+  ensureDriveMap();
+  locateOnMap(driveMap, ()=>driveMeMarker, (m)=>{driveMeMarker=m;}, setDriveStatus, 15);
+};
+
+/* ---------- route projection (used for real GPS fixes) ---------- */
+function projectToRoute(lat, lng, lastIdx){
+  const p = [lng, lat];
+  let searchStart, searchEnd;
+  if(lastIdx < 0){ searchStart = 0; searchEnd = routePtsCache.length-1; }
+  else{ searchStart = Math.max(0, lastIdx-20); searchEnd = Math.min(routePtsCache.length-1, lastIdx+400); }
+  let best=-1, bestD=Infinity;
+  for(let i=searchStart;i<=searchEnd;i++){
+    const d = haversine(p, routePtsCache[i]);
+    if(d<bestD){ bestD=d; best=i; }
+  }
+  return {idx:best, dist:routeCumCache[best], offsetM:bestD};
+}
+
+function pointAtDistance(d){
+  const cum = routeCumCache, pts = routePtsCache;
+  let i=0;
+  while(i < cum.length-2 && cum[i+1] < d) i++;
+  const segLen = cum[i+1]-cum[i];
+  const frac = segLen>0 ? (d-cum[i])/segLen : 0;
+  const a = pts[i], b = pts[i+1];
+  return {lng:a[0]+(b[0]-a[0])*frac, lat:a[1]+(b[1]-a[1])*frac};
+}
+
+/* ---------- shared progress handling ---------- */
+function advance(newProgressM, speedMps, latlngForMap){
+  currentProgressM = Math.max(0, Math.min(totalRouteM, newProgressM));
+  if(latlngForMap && driveMarker){
+    driveMarker.setLatLng([latlngForMap.lat, latlngForMap.lng]);
+    if(driveMap) driveMap.panTo([latlngForMap.lat, latlngForMap.lng], {animate:true});
+  }
+  updateHud(speedMps);
+  checkAnnouncements(speedMps);
+}
+
+function handleGpsFix(lat, lng, speedMps){
+  if(!progressInitialized){
+    const proj = projectToRoute(lat, lng, -1);
+    lastProjIdx = proj.idx;
+    notes.forEach(n=>{ if(n._abs < proj.dist - 30) n._announced = true; });
+    progressInitialized = true;
+    advance(proj.dist, speedMps, {lat,lng});
+  } else {
+    const proj = projectToRoute(lat, lng, lastProjIdx);
+    lastProjIdx = proj.idx;
+    const next = proj.dist > currentProgressM - 15 ? Math.max(currentProgressM, proj.dist) : currentProgressM;
+    advance(next, speedMps, {lat,lng});
+  }
+}
+
+/* ---------- HUD ---------- */
+function getArrowRotationDeg(dir, grade){
+  const map6to1 = {6:15, 5:35, 4:70, 3:110, 2:150, 1:175};
+  const angle = map6to1[grade] ?? 90;
+  return dir==='R' ? angle : -angle;
+}
+
+function gapSpeechPhrase(m){
+  if(m < 20) return 'すぐ';
+  if(m < 30) return 'から';
+  return `${Math.round(m/10)*10}`;
+}
+function gapShortLabel(m){
+  const g = formatGap(m);
+  return g.text;
+}
+function cornerSpeechPhrase(n){
+  if(n.dir==='FINISH') return 'フィニッシュ';
+  const dirW = n.dir==='R' ? '右' : '左';
+  return `${dirW} ${n.grade}`;
+}
+function buildSpeech(n){
+  return `${gapSpeechPhrase(n.distance)}、${cornerSpeechPhrase(n)}`;
+}
+
+function updateHud(speedMps){
+  const fillPct = totalRouteM>0 ? Math.min(100, currentProgressM/totalRouteM*100) : 0;
+  document.getElementById('hudProgressFill').style.width = fillPct + '%';
+  document.getElementById('hudProgressLabel').textContent =
+    `${Math.round(currentProgressM)} / ${Math.round(totalRouteM)} m　(${Math.round((speedMps||0)*3.6)} km/h)`;
+
+  const nextIdx = notes.findIndex(n => n._abs > currentProgressM - 3);
+  const arrowEl = document.getElementById('hudArrow');
+  const gradeEl = document.getElementById('hudGrade');
+  const distEl = document.getElementById('hudDist');
+  const nextEl = document.getElementById('hudNext');
+  const queueEl = document.getElementById('hudQueue');
+
+  if(nextIdx === -1){
+    arrowEl.textContent = '🏁';
+    arrowEl.style.transform = 'none';
+    arrowEl.className = 'hud-arrow';
+    gradeEl.textContent = 'FIN';
+    gradeEl.className = 'hud-grade';
+    distEl.innerHTML = '—<span>m</span>';
+    nextEl.textContent = 'フィニッシュに到達しました';
+    queueEl.innerHTML = '';
+    return;
+  }
+
+  const n = notes[nextIdx];
+  const remain = Math.max(0, Math.round(n._abs - currentProgressM));
+
+  if(n.dir==='FINISH'){
+    arrowEl.textContent = '🏁';
+    arrowEl.style.transform = 'none';
+    arrowEl.className = 'hud-arrow';
+    gradeEl.textContent = 'FIN';
+    gradeEl.className = 'hud-grade';
+  } else {
+    arrowEl.textContent = '➤';
+    arrowEl.style.transform = `rotate(${getArrowRotationDeg(n.dir, n.grade)}deg)`;
+    arrowEl.className = 'hud-arrow dir-' + n.dir;
+    gradeEl.textContent = String(n.grade);
+    gradeEl.className = 'hud-grade dir-' + n.dir;
+  }
+  distEl.innerHTML = `${remain}<span>m</span>`;
+
+  const n2 = notes[nextIdx+1];
+  if(n2){
+    nextEl.innerHTML = n2.dir==='FINISH'
+      ? `そのあと: <b>FINISH</b>（${gapShortLabel(n2.distance)}）`
+      : `そのあと: <b>${n2.grade}${n2.dir}</b>（${gapShortLabel(n2.distance)}）`;
+  } else {
+    nextEl.textContent = '';
+  }
+
+  queueEl.innerHTML = '';
+  for(let i=nextIdx; i<Math.min(notes.length, nextIdx+4); i++){
+    const qn = notes[i];
+    const pill = document.createElement('span');
+    const label = qn.dir==='FINISH' ? 'FIN' : `${qn.grade}${qn.dir}`;
+    pill.className = 'hud-pill' + (qn.dir!=='FINISH' ? ' '+qn.dir : '') + (i===nextIdx ? ' current' : '');
+    pill.textContent = label;
+    queueEl.appendChild(pill);
+  }
+}
+
+/* ---------- announcements ---------- */
+function computeCallAheadM(speedMps){
+  const t = parseFloat(document.getElementById('callAheadSlider').value) || 4;
+  const base = (speedMps && speedMps>1) ? speedMps*t : 15;
+  return Math.min(400, Math.max(15, base));
+}
+
+function checkAnnouncements(speedMps){
+  const callAheadM = computeCallAheadM(speedMps);
+  for(let i=0;i<notes.length;i++){
+    const n = notes[i];
+    if(n._announced) continue;
+    if(n._abs - currentProgressM <= callAheadM){
+      speakNote(n);
+      n._announced = true;
+    }
+  }
+}
+
+function getSelectedVoice(){
+  const sel = document.getElementById('voiceSelect');
+  const idx = sel.value;
+  if(idx==='' || !window.__ttsVoices) return null;
+  return window.__ttsVoices[+idx] || null;
+}
+
+function speakNote(n){
+  const text = buildSpeech(n);
+  speak(text);
+  lastSpokenNote = n;
+  const statusEl = document.getElementById('hudStatus');
+  statusEl.textContent = '💬 ' + text;
+  statusEl.classList.add('speaking');
+  setTimeout(()=>statusEl.classList.remove('speaking'), 1200);
+}
+
+function speak(text){
+  if(!('speechSynthesis' in window)){
+    document.getElementById('driveStatus').textContent = '⚠ このブラウザは音声合成(Web Speech API)に対応していません。';
+    return;
+  }
+  try{
+    const utter = new SpeechSynthesisUtterance(text);
+    const v = getSelectedVoice();
+    if(v) utter.voice = v;
+    utter.lang = v ? v.lang : 'ja-JP';
+    utter.rate = parseFloat(document.getElementById('rateSlider').value) || 1.0;
+    utter.pitch = parseFloat(document.getElementById('pitchSlider').value) || 1.0;
+    utter.volume = parseFloat(document.getElementById('volumeSlider').value);
+    speechSynthesis.speak(utter);
+  }catch(err){
+    console.error(err);
+    document.getElementById('driveStatus').textContent = '⚠ 音声の再生に失敗しました: ' + err.message;
+  }
+}
+
+document.getElementById('btnTestSpeak').onclick = ()=>{
+  speak('すぐ、右 4。から、左 3。三十、右 2。');
+};
+
+/* ---------- voices ---------- */
+function loadVoices(){
+  const voices = speechSynthesis.getVoices();
+  window.__ttsVoices = voices;
+  const sel = document.getElementById('voiceSelect');
+  const prev = sel.value;
+  sel.innerHTML = '';
+  if(!voices.length){
+    sel.innerHTML = '<option value="">（音声を読み込み中…この画面で利用できない場合があります）</option>';
+    return;
+  }
+  const jaVoices = voices.map((v,i)=>({v,i})).filter(x=>/^ja/i.test(x.v.lang));
+  const list = jaVoices.length ? jaVoices : voices.map((v,i)=>({v,i}));
+  list.forEach(x=>{
+    const opt = document.createElement('option');
+    opt.value = x.i;
+    opt.textContent = `${x.v.name} (${x.v.lang})`;
+    sel.appendChild(opt);
+  });
+  if(prev && [...sel.options].some(o=>o.value===prev)) sel.value = prev;
+}
+if('speechSynthesis' in window){
+  speechSynthesis.onvoiceschanged = loadVoices;
+  loadVoices();
+} else {
+  document.getElementById('voiceSelect').innerHTML = '<option value="">音声合成 非対応</option>';
+}
+
+/* ---------- slider labels ---------- */
+function bindSliderLabel(sliderId, labelId, fmt){
+  const s = document.getElementById(sliderId), l = document.getElementById(labelId);
+  const update = ()=>{ l.textContent = fmt(parseFloat(s.value)); };
+  s.addEventListener('input', update);
+  update();
+}
+bindSliderLabel('callAheadSlider','callAheadVal', v=>v.toFixed(1)+'秒');
+bindSliderLabel('rateSlider','rateVal', v=>v.toFixed(2));
+bindSliderLabel('pitchSlider','pitchVal', v=>v.toFixed(2));
+bindSliderLabel('volumeSlider','volumeVal', v=>v.toFixed(2));
+bindSliderLabel('simSpeedSlider','simSpeedLabel', v=>Math.round(v)+' km/h');
+
+/* ---------- start / stop: GPS ---------- */
+document.getElementById('btnStartGps').onclick = startGps;
+document.getElementById('btnStartSim').onclick = startSim;
+document.getElementById('btnStopDrive').onclick = stopDrive;
+document.getElementById('btnRestartDrive').onclick = ()=>{
+  stopDrive();
+  if(notes.length && routeCoordsLatLng) prepareDrive();
+};
+
+function setDriveButtonsRunning(running){
+  document.getElementById('btnStartGps').disabled = running;
+  document.getElementById('btnStartSim').disabled = running;
+  document.getElementById('btnStopDrive').disabled = !running;
+}
+
+function setDriveStatus(msg){ document.getElementById('driveStatus').textContent = msg; }
+
+function estimateSpeedFromDelta(lat,lng,tMs){
+  let speed = 0;
+  if(lastGpsFix){
+    const dt = (tMs - lastGpsFix.t)/1000;
+    if(dt>0.2){
+      const d = haversine([lastGpsFix.lng,lastGpsFix.lat],[lng,lat]);
+      speed = d/dt;
+    }
+  }
+  lastGpsFix = {lat,lng,t:tMs};
+  return speed;
+}
+
+function startGps(){
+  if(!notes.length || !routeCoordsLatLng){ setDriveStatus('⚠ 先に①でルートとノートを作成してください。'); return; }
+  if(!navigator.geolocation){ setDriveStatus('⚠ このブラウザは位置情報(Geolocation)に対応していません。'); return; }
+  prepareDrive();
+  driveActive = true;
+  driveMethod = 'gps';
+  setDriveButtonsRunning(true);
+  setDriveStatus('📡 位置情報を取得しています… ブラウザの許可ダイアログが出たら「許可」してください。');
+  requestWakeLock();
+  watchId = navigator.geolocation.watchPosition(
+    (pos)=>{
+      const {latitude, longitude, speed} = pos.coords;
+      const speedMps = (speed!=null && speed>=0) ? speed : estimateSpeedFromDelta(latitude, longitude, pos.timestamp || Date.now());
+      setDriveStatus('📡 GPS走行中');
+      handleGpsFix(latitude, longitude, speedMps);
+    },
+    (err)=>{
+      setDriveStatus('⚠ 位置情報を取得できませんでした（' + err.message + '）。このプレビュー画面では位置情報がブロックされている場合があります。HTMLをダウンロードして実機のブラウザで開くか、「シミュレーション開始」をお試しください。');
+    },
+    {enableHighAccuracy:true, maximumAge:1000, timeout:15000}
+  );
+}
+
+/* ---------- start / stop: simulation ---------- */
+function startSim(){
+  if(!notes.length || !routeCoordsLatLng){ setDriveStatus('⚠ 先に①でルートとノートを作成してください。'); return; }
+  prepareDrive();
+  driveActive = true;
+  driveMethod = 'sim';
+  setDriveButtonsRunning(true);
+  setDriveStatus('▶ シミュレーション走行中（実際のGPSは使用していません）');
+  requestWakeLock();
+  simIntervalId = setInterval(()=>{
+    const speedKmh = parseFloat(document.getElementById('simSpeedSlider').value) || 60;
+    const speedMps = speedKmh/3.6;
+    simProgressM += speedMps * (SIM_TICK_MS/1000);
+    if(simProgressM >= totalRouteM){
+      simProgressM = totalRouteM;
+      const pt = pointAtDistance(simProgressM);
+      advance(simProgressM, speedMps, {lat:pt.lat,lng:pt.lng});
+      stopDrive();
+      setDriveStatus('✓ シミュレーション終了（フィニッシュに到達しました）');
+      return;
+    }
+    const pt = pointAtDistance(simProgressM);
+    advance(simProgressM, speedMps, {lat:pt.lat,lng:pt.lng});
+  }, SIM_TICK_MS);
+}
+
+function stopDrive(){
+  if(watchId!=null){ navigator.geolocation.clearWatch(watchId); watchId=null; }
+  if(simIntervalId!=null){ clearInterval(simIntervalId); simIntervalId=null; }
+  driveActive = false;
+  driveMethod = null;
+  setDriveButtonsRunning(false);
+  if('speechSynthesis' in window) speechSynthesis.cancel();
+  releaseWakeLock();
+  if(!document.getElementById('driveStatus').textContent.includes('フィニッシュ')){
+    setDriveStatus('■ 停止しました');
+  }
+}
+
+/* ---------- screen wake lock (best-effort) ---------- */
+async function requestWakeLock(){
+  try{
+    if('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); }
+  }catch(err){ /* not available in this environment — ignore */ }
+}
+function releaseWakeLock(){
+  try{ if(wakeLock){ wakeLock.release(); wakeLock=null; } }catch(err){}
+}
+
 </script>
 </body>
 </html>
